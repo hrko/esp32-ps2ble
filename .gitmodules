@@ -1,0 +1,3 @@
+[submodule "lib/esp32-ps2dev"]
+	path = lib/esp32-ps2dev
+	url = https://github.com/hrko/esp32-ps2dev
