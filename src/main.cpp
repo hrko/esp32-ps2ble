@@ -4,6 +4,7 @@
 #include <NimBLEDevice.h>
 // clang-format on
 
+#include "logging.hpp"
 #include <cstdio>
 extern "C" {
 #include <esp_hid_common.h>
@@ -35,32 +36,23 @@ enum class ScanMode : uint8_t {
 };
 
 QueueHandle_t xQueueScanMode;
-QueueHandle_t xQueueSerialOutput;
 QueueHandle_t xQueueDeviceToConnect;
 QueueHandle_t xQueueClientToSubscribe;
-
-void serialPrint(std::string str);
-void serialPrint(const char* str);
-void serialPrint(char c);
-void serialPrintln(std::string str);
-void serialPrintln(const char* str);
-void serialPrintln(char c);
-void serialPrintln(void);
 
 class ClientCallbacks : public NimBLEClientCallbacks {
   void onConnect(NimBLEClient* pClient) {
     auto output = fmt::format("Connected to: {}", pClient->getPeerAddress().toString());
-    serialPrintln(output);
+    PS2BLE_LOGI(output);
     // pClient->updateConnParams(120, 120, 0, 60);
-    serialPrintln("Triggering scan");
+    PS2BLE_LOGI("Triggering scan");
     auto mode = ScanMode::NewDeviceAndBoundedDevice;
     xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
   };
 
   void onDisconnect(NimBLEClient* pClient) {
     auto output = fmt::format("Disconnected from: {}", pClient->getPeerAddress().toString());
-    serialPrintln(output);
-    serialPrintln("Triggering scan");
+    PS2BLE_LOGI(output);
+    PS2BLE_LOGI("Triggering scan");
     auto mode = ScanMode::NewDeviceAndBoundedDevice;
     xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
   };
@@ -68,20 +60,20 @@ class ClientCallbacks : public NimBLEClientCallbacks {
   bool onConnParamsUpdateRequest(NimBLEClient* pClient, const ble_gap_upd_params* params) { return true; };
 
   uint32_t onPassKeyRequest() {
-    serialPrintln("Client Passkey Request");
+    PS2BLE_LOGI("Client Passkey Request");
     return 123456;
   };
 
   bool onConfirmPIN(uint32_t pass_key) {
     auto output = fmt::format("The passkey YES/NO number: {}", pass_key);
-    serialPrintln(output);
+    PS2BLE_LOGI(output);
     return true;
   };
 
   void onAuthenticationComplete(ble_gap_conn_desc* desc) {
-    serialPrintln("Pairing completed");
+    PS2BLE_LOGI("Pairing completed");
     if (!desc->sec_state.encrypted) {
-      serialPrintln("WARNING: Link is not encrypted");
+      PS2BLE_LOGW("WARNING: Link is not encrypted");
     }
   };
 };
@@ -97,31 +89,10 @@ void notifyCB(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData,
   }
   auto str = fmt::format("{} from {} : Service = {}, Characteristic = {}, Handle = {}, Value = {}",
                          isNotify ? "Notification" : "Indication", addr, svc, chr, handle, value);
-  serialPrintln(str);
+  PS2BLE_LOGI(str);
 }
 
 static ClientCallbacks clientCB;
-
-void taskSerial(void* arg) {
-  while (true) {
-    std::string* str;
-    if (xQueueReceive(xQueueSerialOutput, &str, portMAX_DELAY) == pdTRUE) {
-      Serial.print(str->c_str());
-      delete str;
-    }
-  }
-}
-
-void serialPrint(std::string str) {
-  auto strCopy = new std::string(str);
-  xQueueSend(xQueueSerialOutput, &strCopy, portMAX_DELAY);
-}
-void serialPrint(const char* str) { serialPrint(std::string(str)); }
-void serialPrint(char c) { serialPrint(std::string(1, c)); }
-void serialPrintln(void) { serialPrint("\r\n"); }
-void serialPrintln(std::string str) { serialPrint(str + "\r\n"); }
-void serialPrintln(const char* str) { serialPrint(std::string(str) + "\r\n"); }
-void serialPrintln(char c) { serialPrint(std::string(1, c) + "\r\n"); }
 
 bool isDirectedAdvertisement(NimBLEAdvertisedDevice* advertisedDevice) {
   auto advType = advertisedDevice->getAdvType();
@@ -164,6 +135,12 @@ class AdvertisedDeviceCallbacksBoundedDeviceOnly : public NimBLEAdvertisedDevice
   };
 };
 
+void scanCompleteCB(NimBLEScanResults) {
+  PS2BLE_LOGI("Scan complete");
+  // auto mode = ScanMode::NewDeviceAndBoundedDevice;
+  // xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
+}
+
 void taskScan(void* arg) {
   AdvertisedDeviceCallbacksNewDeviceOnly newDeviceOnlyCallbacks;
   AdvertisedDeviceCallbacksNewDeviceAndBoundedDevice newDeviceAndBoundedDeviceCallbacks;
@@ -194,7 +171,7 @@ void taskScan(void* arg) {
           continue;
       }
 
-      scan->start(0, nullptr);
+      scan->start(0, scanCompleteCB);
     }
   }
 }
@@ -240,7 +217,7 @@ void taskSubscribe(void* arg) {
 
       service = client->getService(CUUID_HID_SERVICE);
       if (service == nullptr) {
-        serialPrintln("HID service not found");
+        PS2BLE_LOGI("HID service not found");
         client->disconnect();
         continue;
       }
@@ -248,7 +225,7 @@ void taskSubscribe(void* arg) {
       // print report map for debug
       characteristic = service->getCharacteristic(CUUID_HID_REPORT_MAP);
       if (characteristic == nullptr) {
-        serialPrintln("HID report map characteristic not found");
+        PS2BLE_LOGI("HID report map characteristic not found");
       } else {
         auto serialOutput = std::string("HID_REPORT_MAP \r\n");
         if (characteristic->canRead()) {
@@ -270,7 +247,7 @@ void taskSubscribe(void* arg) {
           }
           esp_hid_free_report_map(reportMap);
         }
-        serialPrint(serialOutput);
+        PS2BLE_LOGD(serialOutput);
       }
 
       auto characteristics = service->getCharacteristics(true);
@@ -289,7 +266,7 @@ void taskSubscribe(void* arg) {
         auto reportId = value[0];
         auto reportType = esp_hid_report_type_str(value[1]);
         auto serialOutput = fmt::format("handle: {}, report_id: {}, report_type: {}", handle, reportId, reportType);
-        serialPrintln(serialOutput);
+        PS2BLE_LOGD(serialOutput);
       }
 
       // subscribe all hid report characteristic for debug
@@ -306,10 +283,9 @@ void taskSubscribe(void* arg) {
 void setup() {
   Serial.begin(115200);
 
-  xQueueSerialOutput = xQueueCreate(20, sizeof(std::string*));
-  xTaskCreateUniversal(taskSerial, "taskSerial", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+  PS2BLE_LOG_START();
 
-  serialPrintln("Starting NimBLE HID Client");
+  PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
   NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
   NimBLEDevice::setSecurityAuth(true, true, true);
@@ -326,7 +302,7 @@ void setup() {
   auto mode = ScanMode::NewDeviceAndBoundedDevice;
   auto ret = xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
   if (ret != pdTRUE) {
-    serialPrintln("xQueueSend failed for xQueueScanMode");
+    PS2BLE_LOGE("xQueueSend failed for xQueueScanMode");
   }
 }
 
