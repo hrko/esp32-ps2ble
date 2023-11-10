@@ -265,7 +265,7 @@ void taskSubscribe(void* arg) {
         auto value = desc->readValue();
         auto reportId = value[0];
         auto reportType = esp_hid_report_type_str(value[1]);
-        auto serialOutput = fmt::format("handle: {}, report_id: {}, report_type: {}", handle, reportId, reportType);
+        auto serialOutput = fmt::format("handle: 0x{:02X}, report_id: {}, report_type: {}", handle, reportId, reportType);
         PS2BLE_LOGD(serialOutput);
       }
 
