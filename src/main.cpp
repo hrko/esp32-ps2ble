@@ -5,6 +5,8 @@
 // clang-format on
 
 #include "logging.hpp"
+#include "keyboard.hpp"
+#include "report_map.hpp"
 #include <cstdio>
 extern "C" {
 #include <esp_hid_common.h>
@@ -233,6 +235,14 @@ void taskSubscribe(void* arg) {
           auto rawReportMap = value.data();
           auto rawReportMapLength = value.length();
           auto reportMap = esp_hid_parse_report_map(rawReportMap, rawReportMapLength);
+
+          // print raw report map first
+          serialOutput += fmt::format("raw report map: ");
+          for (size_t i = 0; i < rawReportMapLength; i++) {
+            serialOutput += fmt::format("0x{:02X},", rawReportMap[i]);
+          }
+          serialOutput += fmt::format("\r\n");
+
           for (size_t i = 0; i < reportMap->reports_len; i++) {
             auto reportItem = reportMap->reports[i];
             auto mapIndex = reportItem.map_index;
@@ -242,10 +252,17 @@ void taskSubscribe(void* arg) {
             auto usage = esp_hid_usage_str(reportItem.usage);
             auto valueLen = reportItem.value_len;
 
+            // only print where protocol_mode is REPORT and report_type is INPUT
+            if (reportItem.protocol_mode != ESP_HID_PROTOCOL_MODE_REPORT) continue;
+            if (reportItem.report_type != ESP_HID_REPORT_TYPE_INPUT) continue;
             serialOutput += fmt::format("map_index: {}, report_id: {}, report_type: {}, protocol_mode: {}, usage: {}, value_len: {}\r\n",
                                         mapIndex, reportId, reportType, protocolMode, usage, valueLen);
           }
           esp_hid_free_report_map(reportMap);
+
+          // print report map using ReportMap class
+          auto reportMap2 = ReportMap(rawReportMap, rawReportMapLength);
+          serialOutput += reportMap2.toString();
         }
         PS2BLE_LOGD(serialOutput);
       }
@@ -265,6 +282,8 @@ void taskSubscribe(void* arg) {
         auto value = desc->readValue();
         auto reportId = value[0];
         auto reportType = esp_hid_report_type_str(value[1]);
+        // only print where report_type is INPUT
+        if (value[1] != ESP_HID_REPORT_TYPE_INPUT) continue;
         auto serialOutput = fmt::format("handle: 0x{:02X}, report_id: {}, report_type: {}", handle, reportId, reportType);
         PS2BLE_LOGD(serialOutput);
       }
