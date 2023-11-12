@@ -1,12 +1,6 @@
 #ifndef D81310A6_C4D4_4BD1_A83E_DB6CD32E413C
 #define D81310A6_C4D4_4BD1_A83E_DB6CD32E413C
 
-// clang-format off
-#include <fmt/core.h>
-// clang-format on
-
-#include <NimBLEDevice.h>
-
 #include <cstdint>
 #include <unordered_map>
 #include <vector>

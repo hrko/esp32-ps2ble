@@ -1,14 +1,6 @@
-// clang-format off
-#include <fmt/core.h>
-// clang-format on
-
 #include "report_map.hpp"
 
-#include <NimBLEDevice.h>
-
-#include <cstdint>
-#include <unordered_map>
-#include <vector>
+#include <fmt/core.h>
 
 // global functions
 
