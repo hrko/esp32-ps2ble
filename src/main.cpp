@@ -6,7 +6,7 @@
 
 #include "logging.hpp"
 #include "keyboard.hpp"
-#include "report_map.hpp"
+#include "hid/report_map.hpp"
 #include <cstdio>
 extern "C" {
 #include <esp_hid_common.h>
