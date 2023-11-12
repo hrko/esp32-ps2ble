@@ -5,9 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
-using usagePage_t = std::uint16_t;
-using usageID_t = std::uint16_t;
-using reportID_t = std::uint8_t;
+#include "common.hpp"
+
 using reportMapItemPrefix_t = std::uint8_t;
 
 enum class ReportMapItemType {

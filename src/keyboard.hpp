@@ -5,6 +5,8 @@
 #include <initializer_list>
 #include <cstdint>
 
+#include "hid/common.hpp"
+
 class ScanCode {
   std::initializer_list<std::uint8_t> code;
 
@@ -26,12 +28,6 @@ class ScanCodePair {
 
   const ScanCode* getMake() const;
   const ScanCode* getBreak() const;
-};
-
-enum class UsagePage : std::uint16_t {
-  GenericDesktop = 0x01,
-  KeyboardKeypad = 0x07,
-  Consumer = 0x0C,
 };
 
 enum class ScanCodeSet {

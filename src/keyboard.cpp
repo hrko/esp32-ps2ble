@@ -1471,7 +1471,7 @@ constexpr auto PAGE_0C_SC2_MAP = mapbox::eternal::map<UsageID, const ScanCodePai
 const ScanCode* getScanCode(UsageID id, ScanCodeType type, UsagePage page, ScanCodeSet set) {
   const ScanCodePair* pair = nullptr;
   switch (page) {
-    case UsagePage::GenericDesktop:
+    case UsagePage::GENERIC_DESKTOP:
       switch (set) {
         case ScanCodeSet::Set1:
           if (PAGE_01_SC1_MAP.contains(id)) {
@@ -1485,7 +1485,7 @@ const ScanCode* getScanCode(UsageID id, ScanCodeType type, UsagePage page, ScanC
           break;
       }
       break;
-    case UsagePage::KeyboardKeypad:
+    case UsagePage::KEYBOARD_KEYPAD:
       switch (set) {
         case ScanCodeSet::Set1:
           if (PAGE_07_SC1_MAP.contains(id)) {
@@ -1499,7 +1499,7 @@ const ScanCode* getScanCode(UsageID id, ScanCodeType type, UsagePage page, ScanC
           break;
       }
       break;
-    case UsagePage::Consumer:
+    case UsagePage::CONSUMER:
       switch (set) {
         case ScanCodeSet::Set1:
           if (PAGE_0C_SC1_MAP.contains(id)) {
