@@ -49,21 +49,21 @@ std::string ReportItem::toString() {
                      usageIDsStr, reportSize, reportCount, logicalMin, logicalMax);
 }
 
-// ReportFormat functions
+// ReportItemList functions
 
-ReportFormat::ReportFormat(usagePage_t usagePage, usageID_t usageID, ReportType reportType, reportID_t reportID)
+ReportItemList::ReportItemList(usagePage_t usagePage, usageID_t usageID, ReportType reportType, reportID_t reportID)
     : usagePage(usagePage), usageID(usageID), reportType(reportType), reportID(reportID) {}
-ReportFormat::~ReportFormat() {
+ReportItemList::~ReportItemList() {
   for (auto item : items) {
     delete item;
   }
 }
-void ReportFormat::addItem(ReportItem* item) { items.push_back(item); }
-std::vector<ReportItem*> ReportFormat::getItems() { return items; }
-ReportFormat::ReportType ReportFormat::getReportType() { return reportType; }
-std::uint8_t ReportFormat::getReportID() { return reportID; }
-void ReportFormat::setReportID(reportID_t reportID) { this->reportID = reportID; }
-std::string ReportFormat::toString() {
+void ReportItemList::addItem(ReportItem* item) { items.push_back(item); }
+std::vector<ReportItem*> ReportItemList::getItems() { return items; }
+ReportItemList::ReportType ReportItemList::getReportType() { return reportType; }
+std::uint8_t ReportItemList::getReportID() { return reportID; }
+void ReportItemList::setReportID(reportID_t reportID) { this->reportID = reportID; }
+std::string ReportItemList::toString() {
   std::string reportTypeStr;
   switch (reportType) {
     case ReportType::INPUT_TYPE:
@@ -112,9 +112,9 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
   LocalItemState localItemState;
   std::vector<GlobalItemState> globalItemStateStack;  // only used for PUSH and POP
   std::vector<CollectionProperty> collectionStack;
-  ReportFormat* formatInput = nullptr;
-  ReportFormat* formatOutput = nullptr;
-  ReportFormat* formatFeature = nullptr;
+  ReportItemList* itemListInput = nullptr;
+  ReportItemList* itemListOutput = nullptr;
+  ReportItemList* itemListFeature = nullptr;
 
   // parse the raw report map
   for (size_t i = 0; i < raw_map_len;) {
@@ -160,11 +160,11 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
         auto collectionProperty = CollectionProperty{usagePage, usageID, collectionType};
         collectionStack.push_back(collectionProperty);
         if (collectionProperty.isApplicationCollection()) {
-          formatInput = new ReportFormat(collectionProperty.usagePage, collectionProperty.usageID, ReportFormat::ReportType::INPUT_TYPE, 0);
-          formatOutput =
-              new ReportFormat(collectionProperty.usagePage, collectionProperty.usageID, ReportFormat::ReportType::OUTPUT_TYPE, 0);
-          formatFeature =
-              new ReportFormat(collectionProperty.usagePage, collectionProperty.usageID, ReportFormat::ReportType::FEATURE_TYPE, 0);
+          itemListInput = new ReportItemList(collectionProperty.usagePage, collectionProperty.usageID, ReportItemList::ReportType::INPUT_TYPE, 0);
+          itemListOutput =
+              new ReportItemList(collectionProperty.usagePage, collectionProperty.usageID, ReportItemList::ReportType::OUTPUT_TYPE, 0);
+          itemListFeature =
+              new ReportItemList(collectionProperty.usagePage, collectionProperty.usageID, ReportItemList::ReportType::FEATURE_TYPE, 0);
         }
         break;
       }
@@ -173,37 +173,37 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
         auto collectionProperty = collectionStack.back();
         collectionStack.pop_back();
         if (collectionProperty.isApplicationCollection()) {
-          formatInput->setReportID(globalItemState.reportID);
-          formatOutput->setReportID(globalItemState.reportID);
-          formatFeature->setReportID(globalItemState.reportID);
-          addFormat(formatInput);
-          addFormat(formatOutput);
-          addFormat(formatFeature);
+          itemListInput->setReportID(globalItemState.reportID);
+          itemListOutput->setReportID(globalItemState.reportID);
+          itemListFeature->setReportID(globalItemState.reportID);
+          addItemList(itemListInput);
+          addItemList(itemListOutput);
+          addItemList(itemListFeature);
         }
         break;
       }
 
       case ReportMapItemPrefixBase::INPUT_:
-        if (formatInput != nullptr) {
+        if (itemListInput != nullptr) {
           auto reportItem = new ReportItem(globalItemState.usagePage, localItemState.usageIDs, globalItemState.reportSize,
                                            globalItemState.reportCount, globalItemState.logicalMin, globalItemState.logicalMax);
-          formatInput->addItem(reportItem);
+          itemListInput->addItem(reportItem);
         }
         break;
 
       case ReportMapItemPrefixBase::OUTPUT_:
-        if (formatOutput != nullptr) {
+        if (itemListOutput != nullptr) {
           auto reportItem = new ReportItem(globalItemState.usagePage, localItemState.usageIDs, globalItemState.reportSize,
                                            globalItemState.reportCount, globalItemState.logicalMin, globalItemState.logicalMax);
-          formatOutput->addItem(reportItem);
+          itemListOutput->addItem(reportItem);
         }
         break;
 
       case ReportMapItemPrefixBase::FEATURE:
-        if (formatFeature != nullptr) {
+        if (itemListFeature != nullptr) {
           auto reportItem = new ReportItem(globalItemState.usagePage, localItemState.usageIDs, globalItemState.reportSize,
                                            globalItemState.reportCount, globalItemState.logicalMin, globalItemState.logicalMax);
-          formatFeature->addItem(reportItem);
+          itemListFeature->addItem(reportItem);
         }
         break;
 
@@ -258,63 +258,63 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
 }
 
 ReportMap::~ReportMap() {
-  for (auto format : inputReportFormats) {
-    delete format.second;
+  for (auto itemList : input) {
+    delete itemList.second;
   }
-  for (auto format : outputReportFormats) {
-    delete format.second;
+  for (auto itemList : output) {
+    delete itemList.second;
   }
-  for (auto format : featureReportFormats) {
-    delete format.second;
-  }
-}
-
-void ReportMap::addFormat(ReportFormat* format) {
-  switch (format->getReportType()) {
-    case ReportFormat::ReportType::INPUT_TYPE:
-      inputReportFormats[format->getReportID()] = format;
-      break;
-    case ReportFormat::ReportType::OUTPUT_TYPE:
-      outputReportFormats[format->getReportID()] = format;
-      break;
-    case ReportFormat::ReportType::FEATURE_TYPE:
-      featureReportFormats[format->getReportID()] = format;
-      break;
+  for (auto itemList : feature) {
+    delete itemList.second;
   }
 }
 
-ReportFormat* ReportMap::getInputReportFormat(reportID_t reportID) { return inputReportFormats[reportID]; }
+void ReportMap::addItemList(ReportItemList* itemList) {
+  switch (itemList->getReportType()) {
+    case ReportItemList::ReportType::INPUT_TYPE:
+      input[itemList->getReportID()] = itemList;
+      break;
+    case ReportItemList::ReportType::OUTPUT_TYPE:
+      output[itemList->getReportID()] = itemList;
+      break;
+    case ReportItemList::ReportType::FEATURE_TYPE:
+      feature[itemList->getReportID()] = itemList;
+      break;
+  }
+}
 
-ReportFormat* ReportMap::getOutputReportFormat(reportID_t reportID) { return outputReportFormats[reportID]; }
+ReportItemList* ReportMap::getInputItemList(reportID_t reportID) { return input[reportID]; }
 
-ReportFormat* ReportMap::getFeatureReportFormat(reportID_t reportID) { return featureReportFormats[reportID]; }
+ReportItemList* ReportMap::getOutputItemList(reportID_t reportID) { return output[reportID]; }
 
-ReportFormat* ReportMap::getReportFormat(ReportFormat::ReportType reportType, reportID_t reportID) {
+ReportItemList* ReportMap::getFeatureItemList(reportID_t reportID) { return feature[reportID]; }
+
+ReportItemList* ReportMap::getItemList(ReportItemList::ReportType reportType, reportID_t reportID) {
   switch (reportType) {
-    case ReportFormat::ReportType::INPUT_TYPE:
-      return getInputReportFormat(reportID);
-    case ReportFormat::ReportType::OUTPUT_TYPE:
-      return getOutputReportFormat(reportID);
-    case ReportFormat::ReportType::FEATURE_TYPE:
-      return getFeatureReportFormat(reportID);
+    case ReportItemList::ReportType::INPUT_TYPE:
+      return getInputItemList(reportID);
+    case ReportItemList::ReportType::OUTPUT_TYPE:
+      return getOutputItemList(reportID);
+    case ReportItemList::ReportType::FEATURE_TYPE:
+      return getFeatureItemList(reportID);
     default:
       return nullptr;
   }
 }
 
 std::string ReportMap::toString() {
-  std::string inputReportFormatsStr;
-  for (auto format : inputReportFormats) {
-    inputReportFormatsStr += "\n" + format.second->toString();
+  std::string inputItemListsStr;
+  for (auto itemList : input) {
+    inputItemListsStr += "\n" + itemList.second->toString();
   }
-  std::string outputReportFormatsStr;
-  for (auto format : outputReportFormats) {
-    outputReportFormatsStr += "\n" + format.second->toString();
+  std::string outputItemListsStr;
+  for (auto itemList : output) {
+    outputItemListsStr += "\n" + itemList.second->toString();
   }
-  std::string featureReportFormatsStr;
-  for (auto format : featureReportFormats) {
-    featureReportFormatsStr += "\n" + format.second->toString();
+  std::string featureItemListsStr;
+  for (auto itemList : feature) {
+    featureItemListsStr += "\n" + itemList.second->toString();
   }
-  return fmt::format("InputReportFormats:{}\nOutputReportFormats:{}\nFeatureReportFormats:{}", inputReportFormatsStr,
-                     outputReportFormatsStr, featureReportFormatsStr);
+  return fmt::format("InputItemLists:{}\nOutputItemLists:{}\nFeatureItemLists:{}", inputItemListsStr,
+                     outputItemListsStr, featureItemListsStr);
 }

@@ -78,7 +78,7 @@ class ReportItem {
   std::string toString();
 };
 
-class ReportFormat {
+class ReportItemList {
  public:
   enum class ReportType {
     INPUT_TYPE,
@@ -94,8 +94,8 @@ class ReportFormat {
   reportID_t reportID;
 
  public:
-  ReportFormat(usagePage_t usagePage, usageID_t usageID, ReportType reportType, reportID_t reportID);
-  ~ReportFormat();
+  ReportItemList(usagePage_t usagePage, usageID_t usageID, ReportType reportType, reportID_t reportID);
+  ~ReportItemList();
   void addItem(ReportItem* item);
   std::vector<ReportItem*> getItems();
   ReportType getReportType();
@@ -110,19 +110,19 @@ std::uint8_t getReportMapItemSize(reportMapItemPrefix_t prefix);
 
 class ReportMap {
  private:
-  std::unordered_map<reportID_t, ReportFormat*> inputReportFormats;
-  std::unordered_map<reportID_t, ReportFormat*> outputReportFormats;
-  std::unordered_map<reportID_t, ReportFormat*> featureReportFormats;
+  std::unordered_map<reportID_t, ReportItemList*> input;
+  std::unordered_map<reportID_t, ReportItemList*> output;
+  std::unordered_map<reportID_t, ReportItemList*> feature;
 
  public:
-  void addFormat(ReportFormat* format);
+  void addItemList(ReportItemList* itemList);
 
   ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len);
   ~ReportMap();
-  ReportFormat* getInputReportFormat(reportID_t reportID);
-  ReportFormat* getOutputReportFormat(reportID_t reportID);
-  ReportFormat* getFeatureReportFormat(reportID_t reportID);
-  ReportFormat* getReportFormat(ReportFormat::ReportType reportType, reportID_t reportID);
+  ReportItemList* getInputItemList(reportID_t reportID);
+  ReportItemList* getOutputItemList(reportID_t reportID);
+  ReportItemList* getFeatureItemList(reportID_t reportID);
+  ReportItemList* getItemList(ReportItemList::ReportType reportType, reportID_t reportID);
   std::string toString();
 };
 
