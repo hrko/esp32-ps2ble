@@ -46,6 +46,8 @@ enum class ScanCodeType {
 
 using UsageID = std::uint16_t;
 
+const ScanCode* getScanCode(UsageID id, ScanCodeType type, UsagePage page, ScanCodeSet set);
+
 // HID Usage Page: 01
 enum class HIDUsageIdGenericDesktop : uint16_t {
   System_Power = 0x81,
