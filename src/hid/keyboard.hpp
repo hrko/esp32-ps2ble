@@ -3,16 +3,15 @@
 
 #include "report_map.hpp"
 
-class KeyboardPressedKeys {
+class KeyboardReport {
  private:
   std::vector<usageID_t> pressedKeys;
 
  public:
   void add(usageID_t usageID);
-  void remove(usageID_t usageID);
-  std::vector<usageID_t> get();
+  std::vector<usageID_t> getPressedKeys();
 };
 
-KeyboardPressedKeys decodeKeyboardInputReport(const std::uint8_t* report, ReportItemList* inputReportItemList);
+KeyboardReport decodeKeyboardInputReport(const std::uint8_t* rawReport, ReportItemList* inputReportItemList);
 
 #endif /* A3258D52_3303_43EF_8FDE_4621626B6EEF */

@@ -231,7 +231,7 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
   auto reportItemList = reportMap->getInputReportItemList(reportID);
 
   auto report = decodeKeyboardInputReport(pData, reportItemList);
-  auto pressedKeys = report.get();
+  auto pressedKeys = report.getPressedKeys();
 
   auto output = fmt::format("reportID: {}, pressedKeys: ", reportID);
   for (auto& key : pressedKeys) {
