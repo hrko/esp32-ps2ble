@@ -15,6 +15,12 @@ extern "C" {
 #include <esp_hid_common.h>
 }
 
+#include <WiFi.h>
+const char* SSID = "ESP32-BLEPS2";
+const char* PASSWORD = "123456789";
+const IPAddress LOCAL_IP(192, 168, 1, 1);
+const IPAddress GATEWAY(192, 168, 1, 1);
+
 #include <map>
 
 const uint16_t APPEARANCE_HID_GENERIC = 0x3C0;
@@ -419,6 +425,11 @@ void setup() {
   Serial.begin(115200);
 
   PS2BLE_LOG_START();
+
+  PS2BLE_LOGI("Starting WiFi Soft-AP");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(LOCAL_IP, GATEWAY, IPAddress(255, 255, 255, 0));
+  WiFi.softAP(SSID, PASSWORD);
 
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
