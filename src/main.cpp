@@ -371,7 +371,14 @@ void taskSubscribe(void* arg) {
                                    reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDConsumer::CONSUMERCONTROL);
           if (!isKeyboard && !isConsumerControl) continue;
           if (reportId == reportItemList->getReportID() && c->canNotify()) {
-            c->subscribe(true, notifyCallbackKeyboardHIDReport);
+            auto result = c->subscribe(true, notifyCallbackKeyboardHIDReport);
+            if (result) {
+              auto serialOutput = fmt::format("Subscribed to reportID: {}", reportId);
+              PS2BLE_LOGI(serialOutput);
+            } else {
+              auto serialOutput = fmt::format("Failed to subscribe to reportID: {}", reportId);
+              PS2BLE_LOGE(serialOutput);
+            }
           }
         }
       }
