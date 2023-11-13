@@ -376,9 +376,9 @@ void taskSubscribe(void* arg) {
       for (auto& c : characteristicsHidReport) {
         auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
         auto value = desc->readValue();
+        if (value.size() != 2) continue;
         auto reportId = value[0];
         auto reportType = value[1];
-        if (value.size() != 2) continue;
         // only subscribe where report_type is INPUT
         if (reportType != ESP_HID_REPORT_TYPE_INPUT) continue;
         auto reportMap = ReportMapCache[client->getPeerAddress()];
