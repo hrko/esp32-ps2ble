@@ -49,6 +49,17 @@ std::string ReportItem::toString() {
                      usageIDsStr, reportSize, reportCount, logicalMin, logicalMax);
 }
 
+usagePage_t ReportItem::getUsagePage() { return usagePage; }
+std::vector<usageID_t> ReportItem::getUsageIDs() { return usageIDs; }
+std::uint32_t ReportItem::getReportSize() { return reportSize; }
+std::uint32_t ReportItem::getReportCount() { return reportCount; }
+std::int32_t ReportItem::getLogicalMin() { return logicalMin; }
+std::int32_t ReportItem::getLogicalMax() { return logicalMax; }
+std::uint32_t ReportItem::getBitOffset() { return bitOffset; }
+void ReportItem::setBitOffset(std::uint32_t bitOffset) { this->bitOffset = bitOffset; }
+std::uint32_t ReportItem::getBitLength() { return bitLength; }
+void ReportItem::setBitLength(std::uint32_t bitLength) { this->bitLength = bitLength; }
+
 // ReportItemList functions
 
 ReportItemList::ReportItemList(usagePage_t usagePage, usageID_t usageID, ReportType reportType, reportID_t reportID)
@@ -58,7 +69,23 @@ ReportItemList::~ReportItemList() {
     delete item;
   }
 }
-void ReportItemList::addItem(ReportItem* item) { items.push_back(item); }
+// void ReportItemList::addItem(ReportItem* item) { items.push_back(item); }
+void ReportItemList::addItem(ReportItem* item) {
+  // set the bit offset
+  if (items.size() > 0) {
+    auto lastItem = items.back();
+    auto lastItemBitOffset = lastItem->getBitOffset();
+    auto lastItemBitLength = lastItem->getBitLength();
+    item->setBitOffset(lastItemBitOffset + lastItemBitLength);
+  } else {
+    item->setBitOffset(0);
+  }
+  // set the bit length
+  auto itemBitLength = item->getReportSize() * item->getReportCount();
+  item->setBitLength(itemBitLength);
+
+  items.push_back(item);
+}
 std::vector<ReportItem*> ReportItemList::getItems() { return items; }
 ReportItemList::ReportType ReportItemList::getReportType() { return reportType; }
 std::uint8_t ReportItemList::getReportID() { return reportID; }

@@ -70,10 +70,23 @@ class ReportItem {
   std::uint32_t reportCount;
   std::int32_t logicalMin;
   std::int32_t logicalMax;
+  // these are generated from the reportSize and reportCount
+  std::uint32_t bitOffset = 0;
+  std::uint32_t bitLength = 0;
 
  public:
   ReportItem(usagePage_t usagePage, std::vector<usageID_t> usageIDs, std::uint32_t reportSize, std::uint32_t reportCount,
              std::int32_t logicalMin, std::int32_t logicalMax);
+  usagePage_t getUsagePage();
+  std::vector<usageID_t> getUsageIDs();
+  std::uint32_t getReportSize();
+  std::uint32_t getReportCount();
+  std::int32_t getLogicalMin();
+  std::int32_t getLogicalMax();
+  std::uint32_t getBitOffset();
+  void setBitOffset(std::uint32_t bitOffset);
+  std::uint32_t getBitLength();
+  void setBitLength(std::uint32_t bitLength);
   std::string toString();
 };
 
