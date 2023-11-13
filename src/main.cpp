@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "hid/keyboard.hpp"
+#include "hid/mouse.hpp"
 #include "hid/report_map.hpp"
 #include "key_translate.hpp"
 #include "logging.hpp"
@@ -241,6 +242,16 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
   PS2BLE_LOGI(output);
 }
 
+void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+  auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
+  auto handle = pRemoteCharacteristic->getHandle();
+  auto reportID = HandleReportIDMapCache[addr][handle];
+  auto reportMap = ReportMapCache[addr];
+  auto reportItemList = reportMap->getInputReportItemList(reportID);
+  auto report = decodeMouseInputReport(pData, reportItemList);
+  PS2BLE_LOGI(report.toString());
+}
+
 void taskSubscribe(void* arg) {
   NimBLEClient* client;
   while (true) {
@@ -327,6 +338,7 @@ void taskSubscribe(void* arg) {
           auto handle = c->getHandle();
           auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
           auto value = desc->readValue();
+          if (value.size() != 2) continue;
           auto reportId = value[0];
           handleReportIDMap[handle] = reportId;
         }
@@ -338,6 +350,7 @@ void taskSubscribe(void* arg) {
         auto handle = c->getHandle();
         auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
         auto value = desc->readValue();
+        if (value.size() != 2) continue;
         auto reportId = value[0];
         auto reportType = esp_hid_report_type_str(value[1]);
         // only print where report_type is INPUT
@@ -359,25 +372,40 @@ void taskSubscribe(void* arg) {
         auto value = desc->readValue();
         auto reportId = value[0];
         auto reportType = value[1];
+        if (value.size() != 2) continue;
+        // only subscribe where report_type is INPUT
         if (reportType != ESP_HID_REPORT_TYPE_INPUT) continue;
         auto reportMap = ReportMapCache[client->getPeerAddress()];
         auto inputReportItemLists = reportMap->getInputReportItemLists();
-        // look for ReportItem with UsagePage:UsageID == 0x0001:0x0006 or 0x000c:0x0001
+        // search for corresponding reportItemList
         for (auto& inputReportItemList : inputReportItemLists) {
           auto reportItemList = inputReportItemList.second;
-          auto isKeyboard = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
-                            reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDGenericDesktop::KEYBOARD);
-          auto isConsumerControl = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::CONSUMER) &&
-                                   reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDConsumer::CONSUMERCONTROL);
-          if (!isKeyboard && !isConsumerControl) continue;
-          if (reportId == reportItemList->getReportID() && c->canNotify()) {
-            auto result = c->subscribe(true, notifyCallbackKeyboardHIDReport);
-            if (result) {
-              auto serialOutput = fmt::format("Subscribed to reportID: {}", reportId);
-              PS2BLE_LOGI(serialOutput);
-            } else {
-              auto serialOutput = fmt::format("Failed to subscribe to reportID: {}", reportId);
-              PS2BLE_LOGE(serialOutput);
+          if (reportId == reportItemList->getReportID()) {
+            auto isKeyboard = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
+                              reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDGenericDesktop::KEYBOARD);
+            auto isConsumerControl = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::CONSUMER) &&
+                                     reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDConsumer::CONSUMERCONTROL);
+            auto isMouse = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
+                           reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDGenericDesktop::MOUSE);
+            if (isKeyboard || isConsumerControl) {
+              auto result = c->subscribe(true, notifyCallbackKeyboardHIDReport);
+              if (result) {
+                auto serialOutput = fmt::format("Subscribed to reportID: {}", reportId);
+                PS2BLE_LOGI(serialOutput);
+              } else {
+                auto serialOutput = fmt::format("Failed to subscribe to reportID: {}", reportId);
+                PS2BLE_LOGE(serialOutput);
+              }
+            }
+            if (isMouse) {
+              auto result = c->subscribe(true, notifyCallbackMouseHIDReport);
+              if (result) {
+                auto serialOutput = fmt::format("Subscribed to reportID: {}", reportId);
+                PS2BLE_LOGI(serialOutput);
+              } else {
+                auto serialOutput = fmt::format("Failed to subscribe to reportID: {}", reportId);
+                PS2BLE_LOGE(serialOutput);
+              }
             }
           }
         }
