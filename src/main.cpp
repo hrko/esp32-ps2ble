@@ -314,6 +314,15 @@ void setup() {
   NimBLEDevice::setSecurityAuth(true, true, true);
   NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
+  // print bonded devices
+  auto bondedNum = NimBLEDevice::getNumBonds();
+  PS2BLE_LOGI(fmt::format("Number of bonded devices: {}", bondedNum));
+  for (size_t i = 0; i < bondedNum; i++) {
+    auto addr = NimBLEDevice::getBondedAddress(i);
+    auto addrStr = std::string(addr);
+    PS2BLE_LOGI(fmt::format("Bonded device {}: {}", i, addrStr));
+  }
+
   xQueueScanMode = xQueueCreate(1, sizeof(uint8_t));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
   xQueueClientToSubscribe = xQueueCreate(9, sizeof(NimBLEClient*));
