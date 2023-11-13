@@ -96,10 +96,14 @@ void notifyCB(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData,
 
 static ClientCallbacks clientCB;
 
-bool isDirectedAdvertisement(NimBLEAdvertisedDevice* advertisedDevice) {
-  auto advType = advertisedDevice->getAdvType();
-  if (advType == BLE_HCI_ADV_TYPE_ADV_DIRECT_IND_HD || advType == BLE_HCI_ADV_TYPE_ADV_DIRECT_IND_LD) {
-    return true;
+bool isBondedDevice(NimBLEAdvertisedDevice* advertisedDevice) {
+  auto addr = advertisedDevice->getAddress();
+  auto bondedNum = NimBLEDevice::getNumBonds();
+  for (size_t i = 0; i < bondedNum; i++) {
+    auto bondedAddr = NimBLEDevice::getBondedAddress(i);
+    if (addr == bondedAddr) {
+      return true;
+    }
   }
   return false;
 }
@@ -114,7 +118,7 @@ bool isAdvertisingHIDService(NimBLEAdvertisedDevice* advertisedDevice) {
 class AdvertisedDeviceCallbacksNewDeviceOnly : public NimBLEAdvertisedDeviceCallbacks {
   void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
     auto advType = advertisedDevice->getAdvType();
-    if (isDirectedAdvertisement(advertisedDevice)) return;
+    if (isBondedDevice(advertisedDevice)) return;
     if (isAdvertisingHIDService(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
     }
@@ -123,7 +127,7 @@ class AdvertisedDeviceCallbacksNewDeviceOnly : public NimBLEAdvertisedDeviceCall
 
 class AdvertisedDeviceCallbacksNewDeviceAndBoundedDevice : public NimBLEAdvertisedDeviceCallbacks {
   void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
-    if (isDirectedAdvertisement(advertisedDevice) || isAdvertisingHIDService(advertisedDevice)) {
+    if (isBondedDevice(advertisedDevice) || isAdvertisingHIDService(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
     }
   };
@@ -131,7 +135,7 @@ class AdvertisedDeviceCallbacksNewDeviceAndBoundedDevice : public NimBLEAdvertis
 
 class AdvertisedDeviceCallbacksBoundedDeviceOnly : public NimBLEAdvertisedDeviceCallbacks {
   void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
-    if (isDirectedAdvertisement(advertisedDevice)) {
+    if (isBondedDevice(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
     }
   };
