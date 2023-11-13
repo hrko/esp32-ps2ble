@@ -110,6 +110,8 @@ class ReportItemList {
   ~ReportItemList();
   void addItem(ReportItem* item);
   std::vector<ReportItem*> getItems();
+  usagePage_t getUsagePage();
+  usageID_t getUsageID();
   ReportType getReportType();
   std::uint8_t getReportID();
   void setReportID(reportID_t reportID);
@@ -131,10 +133,13 @@ class ReportMap {
 
   ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len);
   ~ReportMap();
-  ReportItemList* getInputItemList(reportID_t reportID);
-  ReportItemList* getOutputItemList(reportID_t reportID);
-  ReportItemList* getFeatureItemList(reportID_t reportID);
+  ReportItemList* getInputReportItemList(reportID_t reportID);
+  ReportItemList* getOutputReportItemList(reportID_t reportID);
+  ReportItemList* getFeatureReportItemList(reportID_t reportID);
   ReportItemList* getItemList(ReportItemList::ReportType reportType, reportID_t reportID);
+  std::unordered_map<reportID_t, ReportItemList*> getInputReportItemLists();
+  std::unordered_map<reportID_t, ReportItemList*> getOutputReportItemLists();
+  std::unordered_map<reportID_t, ReportItemList*> getFeatureReportItemLists();
   std::string toString();
 };
 

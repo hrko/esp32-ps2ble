@@ -87,6 +87,8 @@ void ReportItemList::addItem(ReportItem* item) {
   items.push_back(item);
 }
 std::vector<ReportItem*> ReportItemList::getItems() { return items; }
+usagePage_t ReportItemList::getUsagePage() { return usagePage; }
+usageID_t ReportItemList::getUsageID() { return usageID; }
 ReportItemList::ReportType ReportItemList::getReportType() { return reportType; }
 std::uint8_t ReportItemList::getReportID() { return reportID; }
 void ReportItemList::setReportID(reportID_t reportID) { this->reportID = reportID; }
@@ -187,7 +189,8 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
         auto collectionProperty = CollectionProperty{usagePage, usageID, collectionType};
         collectionStack.push_back(collectionProperty);
         if (collectionProperty.isApplicationCollection()) {
-          itemListInput = new ReportItemList(collectionProperty.usagePage, collectionProperty.usageID, ReportItemList::ReportType::INPUT_TYPE, 0);
+          itemListInput =
+              new ReportItemList(collectionProperty.usagePage, collectionProperty.usageID, ReportItemList::ReportType::INPUT_TYPE, 0);
           itemListOutput =
               new ReportItemList(collectionProperty.usagePage, collectionProperty.usageID, ReportItemList::ReportType::OUTPUT_TYPE, 0);
           itemListFeature =
@@ -310,24 +313,30 @@ void ReportMap::addItemList(ReportItemList* itemList) {
   }
 }
 
-ReportItemList* ReportMap::getInputItemList(reportID_t reportID) { return input[reportID]; }
+ReportItemList* ReportMap::getInputReportItemList(reportID_t reportID) { return input[reportID]; }
 
-ReportItemList* ReportMap::getOutputItemList(reportID_t reportID) { return output[reportID]; }
+ReportItemList* ReportMap::getOutputReportItemList(reportID_t reportID) { return output[reportID]; }
 
-ReportItemList* ReportMap::getFeatureItemList(reportID_t reportID) { return feature[reportID]; }
+ReportItemList* ReportMap::getFeatureReportItemList(reportID_t reportID) { return feature[reportID]; }
 
 ReportItemList* ReportMap::getItemList(ReportItemList::ReportType reportType, reportID_t reportID) {
   switch (reportType) {
     case ReportItemList::ReportType::INPUT_TYPE:
-      return getInputItemList(reportID);
+      return getInputReportItemList(reportID);
     case ReportItemList::ReportType::OUTPUT_TYPE:
-      return getOutputItemList(reportID);
+      return getOutputReportItemList(reportID);
     case ReportItemList::ReportType::FEATURE_TYPE:
-      return getFeatureItemList(reportID);
+      return getFeatureReportItemList(reportID);
     default:
       return nullptr;
   }
 }
+
+std::unordered_map<reportID_t, ReportItemList*> ReportMap::getInputReportItemLists() { return input; }
+
+std::unordered_map<reportID_t, ReportItemList*> ReportMap::getOutputReportItemLists() { return output; }
+
+std::unordered_map<reportID_t, ReportItemList*> ReportMap::getFeatureReportItemLists() { return feature; }
 
 std::string ReportMap::toString() {
   std::string inputItemListsStr;
@@ -342,6 +351,6 @@ std::string ReportMap::toString() {
   for (auto itemList : feature) {
     featureItemListsStr += "\n" + itemList.second->toString();
   }
-  return fmt::format("InputItemLists:{}\nOutputItemLists:{}\nFeatureItemLists:{}", inputItemListsStr,
-                     outputItemListsStr, featureItemListsStr);
+  return fmt::format("InputItemLists:{}\nOutputItemLists:{}\nFeatureItemLists:{}", inputItemListsStr, outputItemListsStr,
+                     featureItemListsStr);
 }

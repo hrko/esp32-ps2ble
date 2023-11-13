@@ -4,13 +4,17 @@
 #include <NimBLEDevice.h>
 // clang-format on
 
-#include "logging.hpp"
-#include "key_translate.hpp"
-#include "hid/report_map.hpp"
 #include <cstdio>
+
+#include "hid/keyboard.hpp"
+#include "hid/report_map.hpp"
+#include "key_translate.hpp"
+#include "logging.hpp"
 extern "C" {
 #include <esp_hid_common.h>
 }
+
+#include <map>
 
 const uint16_t APPEARANCE_HID_GENERIC = 0x3C0;
 const uint16_t APPEARANCE_HID_KEYBOARD = 0x3C1;
@@ -40,6 +44,10 @@ enum class ScanMode : uint8_t {
 QueueHandle_t xQueueScanMode;
 QueueHandle_t xQueueDeviceToConnect;
 QueueHandle_t xQueueClientToSubscribe;
+
+using HandleReportIDMap = std::map<uint16_t, reportID_t>;
+std::map<NimBLEAddress, HandleReportIDMap> HandleReportIDMapCache;
+std::map<NimBLEAddress, ReportMap*> ReportMapCache;
 
 class ClientCallbacks : public NimBLEClientCallbacks {
   void onConnect(NimBLEClient* pClient) {
@@ -214,6 +222,25 @@ void taskConnect(void* arg) {
   vTaskDelete(NULL);
 }
 
+void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+  auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
+  auto handle = pRemoteCharacteristic->getHandle();
+
+  auto reportID = HandleReportIDMapCache[addr][handle];
+  auto reportMap = ReportMapCache[addr];
+  auto reportItemList = reportMap->getInputReportItemList(reportID);
+
+  auto report = decodeKeyboardInputReport(pData, reportItemList);
+  auto pressedKeys = report.get();
+
+  auto output = fmt::format("reportID: {}, pressedKeys: ", reportID);
+  for (auto& key : pressedKeys) {
+    output += fmt::format("{},", key);
+  }
+
+  PS2BLE_LOGI(output);
+}
+
 void taskSubscribe(void* arg) {
   NimBLEClient* client;
   while (true) {
@@ -271,12 +298,39 @@ void taskSubscribe(void* arg) {
         PS2BLE_LOGD(serialOutput);
       }
 
+      // Cache report map
+      auto isReportMapCached = ReportMapCache.find(client->getPeerAddress()) != ReportMapCache.end();
+      if (!isReportMapCached) {
+        characteristic = service->getCharacteristic(CUUID_HID_REPORT_MAP);
+        if (characteristic != nullptr) {
+          auto value = characteristic->readValue();
+          auto rawReportMap = value.data();
+          auto rawReportMapLength = value.length();
+          auto reportMap = new ReportMap(rawReportMap, rawReportMapLength);
+          ReportMapCache[client->getPeerAddress()] = reportMap;
+        }
+      }
+
       auto characteristics = service->getCharacteristics(true);
       auto characteristicsHidReport = std::vector<NimBLERemoteCharacteristic*>();
       for (auto& c : *characteristics) {
         if (c->getUUID() == NimBLEUUID(CUUID_HID_REPORT_DATA)) {
           characteristicsHidReport.push_back(c);
         }
+      }
+
+      // Cache handle report id map
+      auto isHandleReportIDMapCached = HandleReportIDMapCache.find(client->getPeerAddress()) != HandleReportIDMapCache.end();
+      if (!isHandleReportIDMapCached) {
+        auto handleReportIDMap = HandleReportIDMap();
+        for (auto& c : characteristicsHidReport) {
+          auto handle = c->getHandle();
+          auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
+          auto value = desc->readValue();
+          auto reportId = value[0];
+          handleReportIDMap[handle] = reportId;
+        }
+        HandleReportIDMapCache[client->getPeerAddress()] = handleReportIDMap;
       }
 
       // print hid report characteristic for debug
@@ -292,10 +346,33 @@ void taskSubscribe(void* arg) {
         PS2BLE_LOGD(serialOutput);
       }
 
-      // subscribe all hid report characteristic for debug
+      // // subscribe all hid report characteristic for debug
+      // for (auto& c : characteristicsHidReport) {
+      //   if (c->canNotify()) {
+      //     c->subscribe(true, notifyCB);
+      //   }
+      // }
+
+      // subscribe keyboard hid report characteristic
       for (auto& c : characteristicsHidReport) {
-        if (c->canNotify()) {
-          c->subscribe(true, notifyCB);
+        auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
+        auto value = desc->readValue();
+        auto reportId = value[0];
+        auto reportType = value[1];
+        if (reportType != ESP_HID_REPORT_TYPE_INPUT) continue;
+        auto reportMap = ReportMapCache[client->getPeerAddress()];
+        auto inputReportItemLists = reportMap->getInputReportItemLists();
+        // look for ReportItem with UsagePage:UsageID == 0x0001:0x0006 or 0x000c:0x0001
+        for (auto& inputReportItemList : inputReportItemLists) {
+          auto reportItemList = inputReportItemList.second;
+          auto isKeyboard = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
+                            reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDGenericDesktop::KEYBOARD);
+          auto isConsumerControl = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::CONSUMER) &&
+                                   reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDConsumer::CONSUMERCONTROL);
+          if (!isKeyboard && !isConsumerControl) continue;
+          if (reportId == reportItemList->getReportID() && c->canNotify()) {
+            c->subscribe(true, notifyCallbackKeyboardHIDReport);
+          }
         }
       }
     }
