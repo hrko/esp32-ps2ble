@@ -5,7 +5,7 @@
 // clang-format on
 
 #include "logging.hpp"
-#include "keyboard.hpp"
+#include "key_translate.hpp"
 #include "hid/report_map.hpp"
 #include <cstdio>
 extern "C" {
