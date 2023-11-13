@@ -6,9 +6,9 @@ void KeyboardReport::add(usageID_t usageID) { pressedKeys.push_back(usageID); }
 
 std::vector<usageID_t> KeyboardReport::getPressedKeys() { return pressedKeys; }
 
-KeyboardReport decodeKeyboardInputReport(const std::uint8_t* rawReport, ReportItemList* inputReportItemList) {
+KeyboardReport decodeKeyboardInputReport(const std::uint8_t* rawReport, const ReportItemList& inputReportItemList) {
   KeyboardReport pressedKeys;
-  for (auto item : inputReportItemList->getItems()) {
+  for (auto item : inputReportItemList.getItems()) {
     bool isBitmap = item->getReportSize() == 1 && item->getReportCount() > 1;
     bool isUsageIDArray = item->getReportSize() == 8 || item->getReportSize() == 16;
     if (isBitmap) {

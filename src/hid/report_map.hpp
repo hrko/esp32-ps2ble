@@ -77,17 +77,17 @@ class ReportItem {
  public:
   ReportItem(usagePage_t usagePage, std::vector<usageID_t> usageIDs, std::uint32_t reportSize, std::uint32_t reportCount,
              std::int32_t logicalMin, std::int32_t logicalMax);
-  usagePage_t getUsagePage();
-  std::vector<usageID_t> getUsageIDs();
-  std::uint32_t getReportSize();
-  std::uint32_t getReportCount();
-  std::int32_t getLogicalMin();
-  std::int32_t getLogicalMax();
-  std::uint32_t getBitOffset();
+  usagePage_t getUsagePage() const;
+  const std::vector<usageID_t>& getUsageIDs() const;
+  std::uint32_t getReportSize() const;
+  std::uint32_t getReportCount() const;
+  std::int32_t getLogicalMin() const;
+  std::int32_t getLogicalMax() const;
+  std::uint32_t getBitOffset() const;
   void setBitOffset(std::uint32_t bitOffset);
-  std::uint32_t getBitLength();
+  std::uint32_t getBitLength() const;
   void setBitLength(std::uint32_t bitLength);
-  std::string toString();
+  std::string toString() const;
 };
 
 class ReportItemList {
@@ -109,13 +109,13 @@ class ReportItemList {
   ReportItemList(usagePage_t usagePage, usageID_t usageID, ReportType reportType, reportID_t reportID);
   ~ReportItemList();
   void addItem(ReportItem* item);
-  std::vector<ReportItem*> getItems();
-  usagePage_t getUsagePage();
-  usageID_t getUsageID();
-  ReportType getReportType();
-  std::uint8_t getReportID();
+  const std::vector<const ReportItem*> getItems() const;
+  usagePage_t getUsagePage() const;
+  usageID_t getUsageID() const;
+  ReportType getReportType() const;
+  std::uint8_t getReportID() const;
   void setReportID(reportID_t reportID);
-  std::string toString();
+  std::string toString() const;
 };
 
 ReportMapItemPrefixBase getReportMapItemPrefixBase(reportMapItemPrefix_t prefix);
@@ -131,15 +131,14 @@ class ReportMap {
  public:
   void addItemList(ReportItemList* itemList);
 
-  ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len);
+  ReportMap(const std::uint8_t* rawMap, const std::size_t rawMapLen);
   ~ReportMap();
-  ReportItemList* getInputReportItemList(reportID_t reportID);
-  ReportItemList* getOutputReportItemList(reportID_t reportID);
-  ReportItemList* getFeatureReportItemList(reportID_t reportID);
-  ReportItemList* getItemList(ReportItemList::ReportType reportType, reportID_t reportID);
-  std::unordered_map<reportID_t, ReportItemList*> getInputReportItemLists();
-  std::unordered_map<reportID_t, ReportItemList*> getOutputReportItemLists();
-  std::unordered_map<reportID_t, ReportItemList*> getFeatureReportItemLists();
+  const ReportItemList& getInputReportItemList(reportID_t reportID) const;
+  const ReportItemList& getOutputReportItemList(reportID_t reportID) const;
+  const ReportItemList& getFeatureReportItemList(reportID_t reportID) const;
+  const std::unordered_map<reportID_t, const ReportItemList*> getInputReportItemLists() const;
+  const std::unordered_map<reportID_t, const ReportItemList*> getOutputReportItemLists() const;
+  const std::unordered_map<reportID_t, const ReportItemList*> getFeatureReportItemLists() const;
   std::string toString();
 };
 

@@ -40,7 +40,7 @@ ReportItem::ReportItem(usagePage_t usagePage, std::vector<usageID_t> usageIDs, s
       logicalMin(logicalMin),
       logicalMax(logicalMax) {}
 
-std::string ReportItem::toString() {
+std::string ReportItem::toString() const {
   std::string usageIDsStr;
   for (auto usageID : usageIDs) {
     usageIDsStr += fmt::format("0x{:04x}, ", usageID);
@@ -49,15 +49,15 @@ std::string ReportItem::toString() {
                      usageIDsStr, reportSize, reportCount, logicalMin, logicalMax);
 }
 
-usagePage_t ReportItem::getUsagePage() { return usagePage; }
-std::vector<usageID_t> ReportItem::getUsageIDs() { return usageIDs; }
-std::uint32_t ReportItem::getReportSize() { return reportSize; }
-std::uint32_t ReportItem::getReportCount() { return reportCount; }
-std::int32_t ReportItem::getLogicalMin() { return logicalMin; }
-std::int32_t ReportItem::getLogicalMax() { return logicalMax; }
-std::uint32_t ReportItem::getBitOffset() { return bitOffset; }
+usagePage_t ReportItem::getUsagePage() const { return usagePage; }
+const std::vector<usageID_t>& ReportItem::getUsageIDs() const { return usageIDs; }
+std::uint32_t ReportItem::getReportSize() const { return reportSize; }
+std::uint32_t ReportItem::getReportCount() const { return reportCount; }
+std::int32_t ReportItem::getLogicalMin() const { return logicalMin; }
+std::int32_t ReportItem::getLogicalMax() const { return logicalMax; }
+std::uint32_t ReportItem::getBitOffset() const { return bitOffset; }
 void ReportItem::setBitOffset(std::uint32_t bitOffset) { this->bitOffset = bitOffset; }
-std::uint32_t ReportItem::getBitLength() { return bitLength; }
+std::uint32_t ReportItem::getBitLength() const { return bitLength; }
 void ReportItem::setBitLength(std::uint32_t bitLength) { this->bitLength = bitLength; }
 
 // ReportItemList functions
@@ -86,13 +86,19 @@ void ReportItemList::addItem(ReportItem* item) {
 
   items.push_back(item);
 }
-std::vector<ReportItem*> ReportItemList::getItems() { return items; }
-usagePage_t ReportItemList::getUsagePage() { return usagePage; }
-usageID_t ReportItemList::getUsageID() { return usageID; }
-ReportItemList::ReportType ReportItemList::getReportType() { return reportType; }
-std::uint8_t ReportItemList::getReportID() { return reportID; }
+const std::vector<const ReportItem*> ReportItemList::getItems() const {
+  std::vector<const ReportItem*> constItems;
+  for (auto item : items) {
+    constItems.push_back(item);
+  }
+  return constItems;
+}
+usagePage_t ReportItemList::getUsagePage() const { return usagePage; }
+usageID_t ReportItemList::getUsageID() const { return usageID; }
+ReportItemList::ReportType ReportItemList::getReportType() const { return reportType; }
+std::uint8_t ReportItemList::getReportID() const { return reportID; }
 void ReportItemList::setReportID(reportID_t reportID) { this->reportID = reportID; }
-std::string ReportItemList::toString() {
+std::string ReportItemList::toString() const {
   std::string reportTypeStr;
   switch (reportType) {
     case ReportType::INPUT_TYPE:
@@ -115,7 +121,7 @@ std::string ReportItemList::toString() {
 
 // ReportMap functions
 
-ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
+ReportMap::ReportMap(const std::uint8_t* rawMap, const std::size_t rawMapLen) {
   class GlobalItemState {
    public:
     // some global items are omitted since they are not mandatory
@@ -146,9 +152,9 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
   ReportItemList* itemListFeature = nullptr;
 
   // parse the raw report map
-  for (size_t i = 0; i < raw_map_len;) {
+  for (size_t i = 0; i < rawMapLen;) {
     // read the prefix
-    auto prefix = raw_map[i];
+    auto prefix = rawMap[i];
     auto prefixBase = getReportMapItemPrefixBase(prefix);
     auto itemType = getReportMapItemType(prefix);
     auto itemSize = getReportMapItemSize(prefix);
@@ -161,19 +167,19 @@ ReportMap::ReportMap(const std::uint8_t* raw_map, std::size_t raw_map_len) {
         break;
       case 1:
         std::uint8_t itemValue8;
-        std::memcpy(&itemValue8, raw_map + i + 1, 1);
+        std::memcpy(&itemValue8, rawMap + i + 1, 1);
         itemValueUnsigned = itemValue8;
         itemValueSigned = std::int8_t(itemValue8);
         break;
       case 2:
         std::uint16_t itemValue16;
-        std::memcpy(&itemValue16, raw_map + i + 1, 2);
+        std::memcpy(&itemValue16, rawMap + i + 1, 2);
         itemValueUnsigned = itemValue16;
         itemValueSigned = std::int16_t(itemValue16);
         break;
       case 4:
         std::uint32_t itemValue32;
-        std::memcpy(&itemValue32, raw_map + i + 1, 4);
+        std::memcpy(&itemValue32, rawMap + i + 1, 4);
         itemValueUnsigned = itemValue32;
         itemValueSigned = std::int32_t(itemValue32);
         break;
@@ -313,30 +319,31 @@ void ReportMap::addItemList(ReportItemList* itemList) {
   }
 }
 
-ReportItemList* ReportMap::getInputReportItemList(reportID_t reportID) { return input[reportID]; }
+const ReportItemList& ReportMap::getInputReportItemList(reportID_t reportID) const { return *input.at(reportID); }
+const ReportItemList& ReportMap::getOutputReportItemList(reportID_t reportID) const { return *output.at(reportID); }
+const ReportItemList& ReportMap::getFeatureReportItemList(reportID_t reportID) const { return *feature.at(reportID); }
 
-ReportItemList* ReportMap::getOutputReportItemList(reportID_t reportID) { return output[reportID]; }
-
-ReportItemList* ReportMap::getFeatureReportItemList(reportID_t reportID) { return feature[reportID]; }
-
-ReportItemList* ReportMap::getItemList(ReportItemList::ReportType reportType, reportID_t reportID) {
-  switch (reportType) {
-    case ReportItemList::ReportType::INPUT_TYPE:
-      return getInputReportItemList(reportID);
-    case ReportItemList::ReportType::OUTPUT_TYPE:
-      return getOutputReportItemList(reportID);
-    case ReportItemList::ReportType::FEATURE_TYPE:
-      return getFeatureReportItemList(reportID);
-    default:
-      return nullptr;
+const std::unordered_map<reportID_t, const ReportItemList*> ReportMap::getInputReportItemLists() const {
+  std::unordered_map<reportID_t, const ReportItemList*> constInput;
+  for (auto itemList : input) {
+    constInput.insert({itemList.first, itemList.second});
   }
+  return constInput;
 }
-
-std::unordered_map<reportID_t, ReportItemList*> ReportMap::getInputReportItemLists() { return input; }
-
-std::unordered_map<reportID_t, ReportItemList*> ReportMap::getOutputReportItemLists() { return output; }
-
-std::unordered_map<reportID_t, ReportItemList*> ReportMap::getFeatureReportItemLists() { return feature; }
+const std::unordered_map<reportID_t, const ReportItemList*> ReportMap::getOutputReportItemLists() const {
+  std::unordered_map<reportID_t, const ReportItemList*> constOutput;
+  for (auto itemList : output) {
+    constOutput.insert({itemList.first, itemList.second});
+  }
+  return constOutput;
+}
+const std::unordered_map<reportID_t, const ReportItemList*> ReportMap::getFeatureReportItemLists() const {
+  std::unordered_map<reportID_t, const ReportItemList*> constFeature;
+  for (auto itemList : feature) {
+    constFeature.insert({itemList.first, itemList.second});
+  }
+  return constFeature;
+}
 
 std::string ReportMap::toString() {
   std::string inputItemListsStr;

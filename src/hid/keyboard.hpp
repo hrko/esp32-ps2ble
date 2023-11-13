@@ -12,6 +12,6 @@ class KeyboardReport {
   std::vector<usageID_t> getPressedKeys();
 };
 
-KeyboardReport decodeKeyboardInputReport(const std::uint8_t* rawReport, ReportItemList* inputReportItemList);
+KeyboardReport decodeKeyboardInputReport(const std::uint8_t* rawReport, const ReportItemList& inputReportItemList);
 
 #endif /* A3258D52_3303_43EF_8FDE_4621626B6EEF */

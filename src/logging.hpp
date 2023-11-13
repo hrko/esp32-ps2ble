@@ -65,10 +65,10 @@
 #define PS2BLE_LOGV(str) serialPrintln(str)
 #endif
 
-void serialPrint(std::string str);
+void serialPrint(const std::string& str);
 void serialPrint(const char* str);
 void serialPrint(char c);
-void serialPrintln(std::string str);
+void serialPrintln(const std::string& str);
 void serialPrintln(const char* str);
 void serialPrintln(char c);
 void serialPrintln(void);

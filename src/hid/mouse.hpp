@@ -15,6 +15,6 @@ class MouseReport {
   std::string toString();
 };
 
-MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, ReportItemList* inputReportItemList);
+MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, const ReportItemList& inputReportItemList);
 
 #endif /* E8C27331_0DFE_481C_878A_FAEC7EA8B6B9 */

@@ -14,9 +14,9 @@ std::string MouseReport::toString() {
       isButtonPressed[5], isButtonPressed[6], isButtonPressed[7]);
 }
 
-MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, ReportItemList* inputReportItemList) {
+MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, const ReportItemList& inputReportItemList) {
   MouseReport mouseReport;
-  for (auto item : inputReportItemList->getItems()) {
+  for (auto item : inputReportItemList.getItems()) {
     auto usagePage = item->getUsagePage();
     auto reportSize = item->getReportSize();
     // X, Y and Wheel are in the Generic Desktop usage page
