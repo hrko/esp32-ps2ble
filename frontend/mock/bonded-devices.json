@@ -1,13 +1,34 @@
 {
   "bondedDevices": [
-    { "address": "ea:5c:68:43:87:f6", "addressType": 1, "name": "MX Keys" },
-    { "address": "d2:f9:89:dd:cd:81", "addressType": 1, "name": "Logi M750" },
-    { "address": "f3:2c:f5:36:4d:f7", "addressType": 1, "name": "MX Keys" },
-    { "address": "db:e9:33:80:a2:91", "addressType": 1, "name": "Logi M750" },
+    {
+      "address": "d2:f9:89:dd:cd:81",
+      "addressType": 1,
+      "name": "Logi M750",
+      "isConnected": false
+    },
+    {
+      "address": "f3:2c:f5:36:4d:f7",
+      "addressType": 1,
+      "name": "MX Keys",
+      "isConnected": false
+    },
+    {
+      "address": "db:e9:33:80:a2:91",
+      "addressType": 1,
+      "name": "Logi M750",
+      "isConnected": false
+    },
     {
       "address": "c1:19:2d:08:75:00",
       "addressType": 1,
-      "name": "ELECOM TK-FBM119"
+      "name": "ELECOM TK-FBM119",
+      "isConnected": false
+    },
+    {
+      "address": "ea:5c:68:43:87:f7",
+      "addressType": 1,
+      "name": "MX Keys",
+      "isConnected": true
     }
   ]
 }

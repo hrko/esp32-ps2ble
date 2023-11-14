@@ -464,20 +464,20 @@ void setup() {
     PS2BLE_LOGE("NVS init failed");
   }
 
-  PS2BLE_LOGI("Starting WiFi Soft-AP");
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
-  WiFi.softAP(AP_SSID, AP_PASSWORD);
+  // PS2BLE_LOGI("Starting WiFi Soft-AP");
+  // WiFi.mode(WIFI_AP);
+  // WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
+  // WiFi.softAP(AP_SSID, AP_PASSWORD);
 
-  // PS2BLE_LOGI("Starting WiFi");
-  // WiFi.mode(WIFI_STA);
-  // WiFi.config(STA_LOCAL_IP, STA_GATEWAY, STA_SUBNET);
-  // WiFi.begin(STA_SSID, STA_PASSWORD);
-  // while (WiFi.status() != WL_CONNECTED) {
-  //   delay(1000);
-  //   PS2BLE_LOGI("Waiting for WiFi connection");
-  // }
-  // PS2BLE_LOGI("WiFi connected");
+  PS2BLE_LOGI("Starting WiFi");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(STA_SSID, STA_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    PS2BLE_LOGI("Waiting for WiFi connection");
+  }
+  auto ipStr = std::string(WiFi.localIP().toString().c_str());
+  PS2BLE_LOGI(fmt::format("WiFi connected, IP address: {}", ipStr));
 
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
@@ -508,10 +508,13 @@ void setup() {
       if (name == nullptr) {
         name = "";
       }
+      auto clinet = NimBLEDevice::getClientByPeerAddress(addr);
+      auto isConnected = clinet != nullptr && clinet->isConnected();
       auto bondedDevice = bondedDevices.createNestedObject();
       bondedDevice["address"] = addrStr;
       bondedDevice["addressType"] = addrType;
       bondedDevice["name"] = name;
+      bondedDevice["isConnected"] = isConnected;
     }
     String output;
     serializeJson(doc, output);
@@ -546,6 +549,7 @@ void setup() {
   // handle GET to fetch frontend files
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
   server.begin();
+  PS2BLE_LOGI(fmt::format("HTTP server started at http://{}", ipStr));
 
   xQueueScanMode = xQueueCreate(1, sizeof(uint8_t));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));

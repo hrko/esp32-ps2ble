@@ -12,6 +12,17 @@ import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import BluetoothConnectedRoundedIcon from "@mui/icons-material/BluetoothConnectedRounded";
 
+function ConnectedChip() {
+  return (
+    <Chip
+      label="接続済み"
+      variant="outlined"
+      size="small"
+      icon={<BluetoothConnectedRoundedIcon />}
+    />
+  );
+}
+
 function DeviceList({ devices, onDelete }) {
   return (
     <List>
@@ -23,12 +34,7 @@ function DeviceList({ devices, onDelete }) {
         >
           <ListItemText primary={device.name} secondary={device.address} />
           <Stack direction="row" spacing={3} alignItems={"center"}>
-            <Chip
-              label="接続済み"
-              variant="outlined"
-              size="small"
-              icon={<BluetoothConnectedRoundedIcon />}
-            />
+            {device.isConnected && <ConnectedChip />}
             <DeleteDeviceButton
               address={device.address}
               addressType={device.addressType}
