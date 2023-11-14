@@ -298,49 +298,6 @@ void taskSubscribe(void* arg) {
         continue;
       }
 
-      // print report map for debug
-      characteristic = service->getCharacteristic(CUUID_HID_REPORT_MAP);
-      if (characteristic == nullptr) {
-        PS2BLE_LOGI("HID report map characteristic not found");
-      } else {
-        auto serialOutput = std::string("HID_REPORT_MAP \r\n");
-        if (characteristic->canRead()) {
-          auto value = characteristic->readValue();
-          auto rawReportMap = value.data();
-          auto rawReportMapLength = value.length();
-          auto reportMap = esp_hid_parse_report_map(rawReportMap, rawReportMapLength);
-
-          // print raw report map first
-          serialOutput += fmt::format("raw report map: ");
-          for (size_t i = 0; i < rawReportMapLength; i++) {
-            serialOutput += fmt::format("0x{:02X},", rawReportMap[i]);
-          }
-          serialOutput += fmt::format("\r\n");
-
-          for (size_t i = 0; i < reportMap->reports_len; i++) {
-            auto reportItem = reportMap->reports[i];
-            auto mapIndex = reportItem.map_index;
-            auto reportId = reportItem.report_id;
-            auto reportType = esp_hid_report_type_str(reportItem.report_type);
-            auto protocolMode = esp_hid_protocol_mode_str(reportItem.protocol_mode);
-            auto usage = esp_hid_usage_str(reportItem.usage);
-            auto valueLen = reportItem.value_len;
-
-            // only print where protocol_mode is REPORT and report_type is INPUT
-            if (reportItem.protocol_mode != ESP_HID_PROTOCOL_MODE_REPORT) continue;
-            if (reportItem.report_type != ESP_HID_REPORT_TYPE_INPUT) continue;
-            serialOutput += fmt::format("map_index: {}, report_id: {}, report_type: {}, protocol_mode: {}, usage: {}, value_len: {}\r\n",
-                                        mapIndex, reportId, reportType, protocolMode, usage, valueLen);
-          }
-          esp_hid_free_report_map(reportMap);
-
-          // print report map using ReportMap class
-          auto reportMap2 = ReportMap(rawReportMap, rawReportMapLength);
-          serialOutput += reportMap2.toString();
-        }
-        PS2BLE_LOGD(serialOutput);
-      }
-
       // Cache report map
       auto isReportMapCached = ReportMapCache.find(client->getPeerAddress()) != ReportMapCache.end();
       if (!isReportMapCached) {
@@ -390,13 +347,6 @@ void taskSubscribe(void* arg) {
         auto serialOutput = fmt::format("handle: 0x{:02X}, report_id: {}, report_type: {}", handle, reportId, reportType);
         PS2BLE_LOGD(serialOutput);
       }
-
-      // // subscribe all hid report characteristic for debug
-      // for (auto& c : characteristicsHidReport) {
-      //   if (c->canNotify()) {
-      //     c->subscribe(true, notifyCB);
-      //   }
-      // }
 
       // subscribe keyboard hid report characteristic
       for (auto& c : characteristicsHidReport) {

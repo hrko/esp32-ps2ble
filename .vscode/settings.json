@@ -52,7 +52,9 @@
     "cinttypes": "cpp",
     "typeinfo": "cpp",
     "chrono": "cpp",
-    "ratio": "cpp"
+    "ratio": "cpp",
+    "bitset": "cpp",
+    "regex": "cpp"
   },
   "editor.renderWhitespace": "boundary"
 }
