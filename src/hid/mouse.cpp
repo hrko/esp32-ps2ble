@@ -17,8 +17,9 @@ std::string MouseReport::toString() {
 MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, const ReportItemList& inputReportItemList) {
   MouseReport mouseReport;
   for (auto item : inputReportItemList.getItems()) {
-    auto usagePage = item->getUsagePage();
-    auto reportSize = item->getReportSize();
+    const auto usagePage = item->getUsagePage();
+    const auto reportSize = item->getReportSize();
+    const auto reportCount = item->getReportCount();
     // X, Y and Wheel are in the Generic Desktop usage page
     if (usagePage == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP)) {
       // loop for usageIDs
@@ -48,7 +49,7 @@ MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, const ReportIt
     }
     // Buttons are in the Button usage page
     if (usagePage == static_cast<usagePage_t>(UsagePage::BUTTON)) {
-      auto isBitmap = item->getReportSize() == 1 && item->getReportCount() > 1;
+      auto isBitmap = reportSize == 1 && reportCount > 1;
       if (!isBitmap) {
         // Only support bitmap for now
         continue;
@@ -58,7 +59,7 @@ MouseReport decodeMouseInputReport(const std::uint8_t* rawReport, const ReportIt
         continue;
       }
       auto firstUsageID = item->getUsageIDs()[0];
-      auto data = extractBitsUnsigned(rawReport, item->getBitOffset(), reportSize);
+      auto data = extractBitsUnsigned(rawReport, item->getBitOffset(), reportCount);
       for (size_t i = 0; i < item->getReportCount(); i++) {
         auto buttonIndex = firstUsageID + i - 1;
         if (buttonIndex >= 0 && buttonIndex < 8) {
