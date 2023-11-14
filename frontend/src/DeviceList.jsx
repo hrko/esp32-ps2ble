@@ -1,15 +1,30 @@
-import React from 'react';
+import React from "react";
+import Button from "@mui/material/Button";
+import ListItem from "@mui/material/ListItem";
+import List from "@mui/material/List";
 
 function DeviceList({ devices, onDelete }) {
   return (
-    <div>
-      {devices.map(device => (
-        <div key={device.address}>
-          <span>{device.name} ({device.address})</span>
-          <button onClick={() => onDelete(device.address, device.addressType)}>削除</button>
-        </div>
+    <List>
+      {devices.map((device) => (
+        <ListItem
+          key={device.address}
+          style={{ display: "flex", justifyContent: "space-between" }}
+          disableGutters
+        >
+          <span>
+            {device.name} ({device.address})
+          </span>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={() => onDelete(device.address, device.addressType)}
+          >
+            削除
+          </Button>
+        </ListItem>
       ))}
-    </div>
+    </List>
   );
 }
 
