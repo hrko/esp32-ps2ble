@@ -15,11 +15,19 @@ extern "C" {
 #include <esp_hid_common.h>
 }
 
+#include <ArduinoJson.h>
+#include <ArduinoNvs.h>
+#include <AsyncJson.h>
+#include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
 #include <WiFi.h>
+
 const char* SSID = "ESP32-BLEPS2";
 const char* PASSWORD = "123456789";
 const IPAddress LOCAL_IP(192, 168, 1, 1);
 const IPAddress GATEWAY(192, 168, 1, 1);
+
+AsyncWebServer server(80);
 
 #include <map>
 
@@ -55,6 +63,16 @@ QueueHandle_t xQueueClientToSubscribe;
 using HandleReportIDMap = std::map<uint16_t, reportID_t>;
 std::map<NimBLEAddress, HandleReportIDMap> HandleReportIDMapCache;
 std::map<NimBLEAddress, ReportMap*> ReportMapCache;
+
+std::string stripColon(const std::string& str) {
+  auto output = std::string();
+  for (auto& c : str) {
+    if (c != ':') {
+      output += c;
+    }
+  }
+  return output;
+}
 
 class ClientCallbacks : public NimBLEClientCallbacks {
   void onConnect(NimBLEClient* pClient) {
@@ -219,6 +237,19 @@ void taskConnect(void* arg) {
       for (size_t i = 0; i < 3; i++) {  // try 3 times
         auto isConnected = client->connect(advertisedDevice);
         if (isConnected) {
+          // save the device name to NVS
+          auto name = advertisedDevice->getName();
+          if (name != "") {
+            auto addr = advertisedDevice->getAddress();
+            auto key = stripColon(addr.toString());
+            auto ok = NVS.setString(key.c_str(), name.c_str());
+            if (!ok) {
+              PS2BLE_LOGE("Failed to save bonded device name to NVS");
+            } else {
+              PS2BLE_LOGI(fmt::format("Saved bonded device name to NVS: {} = {}", addr.toString(), name));
+            }
+          }
+          // then, send client to subscribe task
           xQueueSend(xQueueClientToSubscribe, &client, portMAX_DELAY);
           continue;
         }
@@ -237,7 +268,7 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
   auto reportMap = ReportMapCache[addr];
   auto reportItemList = reportMap->getInputReportItemList(reportID);
 
-  auto report = decodeKeyboardInputReport(pData, reportItemList);
+  auto report = decodeKeyboardInputReport(pData, *reportItemList);
   auto pressedKeys = report.getPressedKeys();
 
   auto output = fmt::format("reportID: {}, pressedKeys: ", reportID);
@@ -254,7 +285,7 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   auto reportID = HandleReportIDMapCache[addr][handle];
   auto reportMap = ReportMapCache[addr];
   auto reportItemList = reportMap->getInputReportItemList(reportID);
-  auto report = decodeMouseInputReport(pData, reportItemList);
+  auto report = decodeMouseInputReport(pData, *reportItemList);
   PS2BLE_LOGI(report.toString());
 }
 
@@ -426,10 +457,32 @@ void setup() {
 
   PS2BLE_LOG_START();
 
-  PS2BLE_LOGI("Starting WiFi Soft-AP");
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(LOCAL_IP, GATEWAY, IPAddress(255, 255, 255, 0));
-  WiFi.softAP(SSID, PASSWORD);
+  // LittleFS init
+  PS2BLE_LOGI("Starting LittleFS");
+  LittleFS.begin();
+
+  // NVS init
+  PS2BLE_LOGI("Starting NVS");
+  constexpr auto NVS_NAMESPACE = "ps2ble";
+  auto ok = NVS.begin(NVS_NAMESPACE);
+  if (!ok) {
+    PS2BLE_LOGE("NVS init failed");
+  }
+
+  // PS2BLE_LOGI("Starting WiFi Soft-AP");
+  // WiFi.mode(WIFI_AP);
+  // WiFi.softAPConfig(LOCAL_IP, GATEWAY, IPAddress(255, 255, 255, 0));
+  // WiFi.softAP(SSID, PASSWORD);
+
+  PS2BLE_LOGI("Starting WiFi");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin("xxxxxxxxxxxx", "xxxxxxxxxxx");
+  WiFi.config(IPAddress(192, 168, 10, 230), IPAddress(192, 168, 10, 1), IPAddress(255, 255, 255, 0));
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    PS2BLE_LOGI("Waiting for WiFi connection");
+  }
+  PS2BLE_LOGI("WiFi connected");
 
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
@@ -445,6 +498,59 @@ void setup() {
     auto addrStr = std::string(addr);
     PS2BLE_LOGI(fmt::format("Bonded device {}: {}", i, addrStr));
   }
+
+  // handle GET to list bonded devices
+  server.on("/api/bonded-devices", HTTP_GET, [](AsyncWebServerRequest* request) {
+    auto doc = DynamicJsonDocument(4096);
+    auto bondedDevices = doc.createNestedArray("bondedDevices");
+    auto bondedNum = NimBLEDevice::getNumBonds();
+    for (size_t i = 0; i < bondedNum; i++) {
+      auto addr = NimBLEDevice::getBondedAddress(i);
+      auto addrStr = std::string(addr);
+      auto addrType = addr.getType();
+      auto key = stripColon(addrStr);
+      auto name = NVS.getString(key.c_str());
+      if (name == nullptr) {
+        name = "";
+      }
+      auto bondedDevice = bondedDevices.createNestedObject();
+      bondedDevice["address"] = addrStr;
+      bondedDevice["addressType"] = addrType;
+      bondedDevice["name"] = name;
+    }
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+  });
+  // handle POST to delete a bonded device
+  auto handler = new AsyncCallbackJsonWebHandler("/api/bonded-devices/delete", [](AsyncWebServerRequest* request, JsonVariant& json) {
+    StaticJsonDocument<256> response;
+    response["deleted"] = false;
+    response["message"] = "";
+    const JsonObject& jsonObj = json.as<JsonObject>();
+    auto addrStr = jsonObj["address"].as<String>();
+    auto addrType = jsonObj["addressType"].as<std::uint8_t>();
+    auto addr = NimBLEAddress(addrStr.c_str(), addrType);
+    if (NimBLEDevice::isBonded(addr)) {
+      PS2BLE_LOGI(fmt::format("Deleting bond for {}", std::string(addr)));
+      auto ok = NimBLEDevice::deleteBond(addr);
+      if (ok) {
+        response["deleted"] = true;
+      } else {
+        response["message"] = "Failed to delete bond";
+      }
+    } else {
+      PS2BLE_LOGI(fmt::format("Bond not found for {}", std::string(addr)));
+      response["message"] = "Bond not found";
+    }
+    String responseStr;
+    serializeJson(response, responseStr);
+    request->send(200, "application/json", responseStr);
+  });
+  server.addHandler(handler);
+  // handle GET to fetch frontend files
+  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  server.begin();
 
   xQueueScanMode = xQueueCreate(1, sizeof(uint8_t));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));

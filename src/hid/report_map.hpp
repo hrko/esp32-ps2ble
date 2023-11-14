@@ -133,9 +133,9 @@ class ReportMap {
 
   ReportMap(const std::uint8_t* rawMap, const std::size_t rawMapLen);
   ~ReportMap();
-  const ReportItemList& getInputReportItemList(reportID_t reportID) const;
-  const ReportItemList& getOutputReportItemList(reportID_t reportID) const;
-  const ReportItemList& getFeatureReportItemList(reportID_t reportID) const;
+  const ReportItemList* getInputReportItemList(reportID_t reportID) const;
+  const ReportItemList* getOutputReportItemList(reportID_t reportID) const;
+  const ReportItemList* getFeatureReportItemList(reportID_t reportID) const;
   const std::unordered_map<reportID_t, const ReportItemList*> getInputReportItemLists() const;
   const std::unordered_map<reportID_t, const ReportItemList*> getOutputReportItemLists() const;
   const std::unordered_map<reportID_t, const ReportItemList*> getFeatureReportItemLists() const;

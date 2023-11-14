@@ -319,9 +319,9 @@ void ReportMap::addItemList(ReportItemList* itemList) {
   }
 }
 
-const ReportItemList& ReportMap::getInputReportItemList(reportID_t reportID) const { return *input.at(reportID); }
-const ReportItemList& ReportMap::getOutputReportItemList(reportID_t reportID) const { return *output.at(reportID); }
-const ReportItemList& ReportMap::getFeatureReportItemList(reportID_t reportID) const { return *feature.at(reportID); }
+const ReportItemList* ReportMap::getInputReportItemList(reportID_t reportID) const { return input.at(reportID); }
+const ReportItemList* ReportMap::getOutputReportItemList(reportID_t reportID) const { return output.at(reportID); }
+const ReportItemList* ReportMap::getFeatureReportItemList(reportID_t reportID) const { return feature.at(reportID); }
 
 const std::unordered_map<reportID_t, const ReportItemList*> ReportMap::getInputReportItemLists() const {
   std::unordered_map<reportID_t, const ReportItemList*> constInput;
