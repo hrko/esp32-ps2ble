@@ -547,7 +547,7 @@ void setup() {
   });
   server.addHandler(handler);
   // handle GET to fetch frontend files
-  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("public,max-age=31536000");
   server.begin();
   PS2BLE_LOGI(fmt::format("HTTP server started at http://{}", ipStr));
 
