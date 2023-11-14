@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import jsonServer from "vite-plugin-simple-json-server";
+import viteCompression from 'vite-plugin-compression';
 
 function streamToString(stream) {
   const chunks = [];
@@ -15,6 +16,9 @@ function streamToString(stream) {
 export default defineConfig({
   plugins: [
     react(),
+    viteCompression({
+      deleteOriginFile: true,
+    }),
     jsonServer({
       urlPrefixes: ["/api/"],
       handlers: [
