@@ -11,7 +11,7 @@ function App() {
 
   const fetchDevices = async () => {
     try {
-      const response = await axios.get('http://192.168.10.230/api/bonded-devices');
+      const response = await axios.get('/api/bonded-devices');
       setDevices(response.data.bondedDevices);
     } catch (error) {
       console.error('Error fetching devices:', error);
@@ -20,7 +20,7 @@ function App() {
 
   const deleteDevice = async (address, addressType) => {
     try {
-      const response = await axios.post('http://192.168.10.230/api/bonded-devices/delete', { address, addressType });
+      const response = await axios.post('/api/bonded-devices/delete', { address, addressType });
       if (response.data.deleted) {
         fetchDevices(); // リストを更新
       } else {
