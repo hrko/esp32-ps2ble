@@ -5,12 +5,14 @@
 // clang-format on
 
 #include <cstdio>
+#include <map>
 
 #include "hid/keyboard.hpp"
 #include "hid/mouse.hpp"
 #include "hid/report_map.hpp"
 #include "key_translate.hpp"
 #include "logging.hpp"
+#include "secrets.hpp"
 extern "C" {
 #include <esp_hid_common.h>
 }
@@ -22,14 +24,7 @@ extern "C" {
 #include <LittleFS.h>
 #include <WiFi.h>
 
-const char* SSID = "ESP32-BLEPS2";
-const char* PASSWORD = "123456789";
-const IPAddress LOCAL_IP(192, 168, 1, 1);
-const IPAddress GATEWAY(192, 168, 1, 1);
-
 AsyncWebServer server(80);
-
-#include <map>
 
 const uint16_t APPEARANCE_HID_GENERIC = 0x3C0;
 const uint16_t APPEARANCE_HID_KEYBOARD = 0x3C1;
@@ -469,20 +464,20 @@ void setup() {
     PS2BLE_LOGE("NVS init failed");
   }
 
-  // PS2BLE_LOGI("Starting WiFi Soft-AP");
-  // WiFi.mode(WIFI_AP);
-  // WiFi.softAPConfig(LOCAL_IP, GATEWAY, IPAddress(255, 255, 255, 0));
-  // WiFi.softAP(SSID, PASSWORD);
+  PS2BLE_LOGI("Starting WiFi Soft-AP");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
+  WiFi.softAP(AP_SSID, AP_PASSWORD);
 
-  PS2BLE_LOGI("Starting WiFi");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin("xxxxxxxxxxxx", "xxxxxxxxxxx");
-  WiFi.config(IPAddress(192, 168, 10, 230), IPAddress(192, 168, 10, 1), IPAddress(255, 255, 255, 0));
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    PS2BLE_LOGI("Waiting for WiFi connection");
-  }
-  PS2BLE_LOGI("WiFi connected");
+  // PS2BLE_LOGI("Starting WiFi");
+  // WiFi.mode(WIFI_STA);
+  // WiFi.config(STA_LOCAL_IP, STA_GATEWAY, STA_SUBNET);
+  // WiFi.begin(STA_SSID, STA_PASSWORD);
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   delay(1000);
+  //   PS2BLE_LOGI("Waiting for WiFi connection");
+  // }
+  // PS2BLE_LOGI("WiFi connected");
 
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
