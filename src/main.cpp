@@ -23,8 +23,11 @@ extern "C" {
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <WiFi.h>
+#include <esp32-ps2dev.h>
 
 AsyncWebServer server(80);
+esp32_ps2dev::PS2Mouse mouse(17, 16);
+esp32_ps2dev::PS2Keyboard keyboard(19, 18);
 
 const uint16_t APPEARANCE_HID_GENERIC = 0x3C0;
 const uint16_t APPEARANCE_HID_KEYBOARD = 0x3C1;
@@ -255,23 +258,71 @@ void taskConnect(void* arg) {
   vTaskDelete(NULL);
 }
 
+std::map<std::pair<NimBLEAddress, reportID_t>, KeyboardReport> LastKeyboardReport;
+
 void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
   auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
   auto handle = pRemoteCharacteristic->getHandle();
-
   auto reportID = HandleReportIDMapCache[addr][handle];
   auto reportMap = ReportMapCache[addr];
   auto reportItemList = reportMap->getInputReportItemList(reportID);
-
   auto report = decodeKeyboardInputReport(pData, *reportItemList);
   auto pressedKeys = report.getPressedKeys();
-
-  auto output = fmt::format("reportID: {}, pressedKeys: ", reportID);
-  for (auto& key : pressedKeys) {
-    output += fmt::format("{},", key);
+  auto usagePage = static_cast<UsagePage>(report.getUsagePage());
+  // if last report is not empty, compare with current report
+  if (LastKeyboardReport.find({addr, reportID}) != LastKeyboardReport.end()) {
+    auto lastReport = LastKeyboardReport[{addr, reportID}];
+    auto currentReport = report;
+    auto lastPressedKeys = lastReport.getPressedKeys();
+    auto currentPressedKeys = pressedKeys;
+    
+    // check for key up
+    for (auto& lastPressedKey : lastPressedKeys) {
+      auto isKeyUp = std::find(currentPressedKeys.begin(), currentPressedKeys.end(), lastPressedKey) == currentPressedKeys.end();
+      if (isKeyUp) {
+        auto scanCode = getScanCode(lastPressedKey, ScanCodeType::Break, usagePage, ScanCodeSet::Set2);
+        if (scanCode == nullptr) {
+          PS2BLE_LOGE(fmt::format("scanCode not found for 0x{:04X}", lastPressedKey));
+          continue;
+        }
+        auto packet = esp32_ps2dev::PS2Packet();
+        std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
+        packet.len = scanCode->getCode()->size();
+        keyboard.send_packet(packet);
+      }
+    }
+    // check for key down
+    for (auto& currentPressedKey : currentPressedKeys) {
+      auto isKeyDown = std::find(lastPressedKeys.begin(), lastPressedKeys.end(), currentPressedKey) == lastPressedKeys.end();
+      if (isKeyDown) {
+        auto scanCode = getScanCode(currentPressedKey, ScanCodeType::Make, usagePage, ScanCodeSet::Set2);
+        if (scanCode == nullptr) {
+          PS2BLE_LOGE(fmt::format("scanCode not found for 0x{:04X}", currentPressedKey));
+          continue;
+        }
+        auto packet = esp32_ps2dev::PS2Packet();
+        std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
+        packet.len = scanCode->getCode()->size();
+        keyboard.send_packet(packet);
+      }
+    }
+  } else {
+    // if last report is empty, send all key down
+    for (auto& pressedKey : pressedKeys) {
+      auto scanCode = getScanCode(pressedKey, ScanCodeType::Make, usagePage, ScanCodeSet::Set2);
+      if (scanCode == nullptr) {
+        PS2BLE_LOGE(fmt::format("scanCode not found for 0x{:04X}", pressedKey));
+        continue;
+      }
+      auto packet = esp32_ps2dev::PS2Packet();
+      std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
+      packet.len = scanCode->getCode()->size();
+      keyboard.send_packet(packet);
+    }
   }
-
-  PS2BLE_LOGI(output);
+  // update last report
+  LastKeyboardReport[{addr, reportID}] = report;
+  PS2BLE_LOGI(report.toString());
 }
 
 void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
@@ -281,6 +332,14 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   auto reportMap = ReportMapCache[addr];
   auto reportItemList = reportMap->getInputReportItemList(reportID);
   auto report = decodeMouseInputReport(pData, *reportItemList);
+  mouse.move(report.x, -report.y, report.wheelVertical);
+  for (size_t i = 0; i < 5; i++) {
+    if (report.isButtonPressed[i]) {
+      mouse.press(static_cast<esp32_ps2dev::PS2Mouse::Button>(i));
+    } else {
+      mouse.release(static_cast<esp32_ps2dev::PS2Mouse::Button>(i));
+    }
+  }
   PS2BLE_LOGI(report.toString());
 }
 
@@ -397,7 +456,20 @@ void taskSubscribe(void* arg) {
   vTaskDelete(NULL);
 }
 
+void taskMouseBegin(void* arg) {
+  mouse.begin();
+  vTaskDelete(NULL);
+}
+
+void taskKeyboardBegin(void* arg) {
+  keyboard.begin();
+  vTaskDelete(NULL);
+}
+
 void setup() {
+  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+
   Serial.begin(115200);
 
   PS2BLE_LOG_START();
@@ -518,5 +590,5 @@ void setup() {
 
 void loop() {
   delay(1000);
-  serialPrintln(fmt::format("Free heap: {}", ESP.getFreeHeap()));
+  // serialPrintln(fmt::format("Free heap: {}", ESP.getFreeHeap()));
 }
