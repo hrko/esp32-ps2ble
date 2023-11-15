@@ -23,8 +23,9 @@ extern "C" {
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <WiFi.h>
-#include <PS2Mouse.hpp>
+
 #include <PS2Keyboard.hpp>
+#include <PS2Mouse.hpp>
 
 AsyncWebServer server(80);
 esp32_ps2dev::PS2Mouse mouse(17, 16);
@@ -276,7 +277,7 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
     auto currentReport = report;
     auto lastPressedKeys = lastReport.getPressedKeys();
     auto currentPressedKeys = pressedKeys;
-    
+
     // check for key up
     for (auto& lastPressedKey : lastPressedKeys) {
       auto isKeyUp = std::find(currentPressedKeys.begin(), currentPressedKeys.end(), lastPressedKey) == currentPressedKeys.end();
@@ -327,14 +328,8 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   auto reportMap = ReportMapCache[addr];
   auto reportItemList = reportMap->getInputReportItemList(reportID);
   auto report = decodeMouseInputReport(pData, *reportItemList);
-  mouse.move(report.x, -report.y, report.wheelVertical);
-  for (size_t i = 0; i < 5; i++) {
-    if (report.isButtonPressed[i]) {
-      mouse.press(static_cast<esp32_ps2dev::PS2Mouse::Button>(i));
-    } else {
-      mouse.release(static_cast<esp32_ps2dev::PS2Mouse::Button>(i));
-    }
-  }
+  mouse.move_and_buttons(report.x, -report.y, report.wheelVertical, report.isButtonPressed[0], report.isButtonPressed[1],
+                         report.isButtonPressed[2], report.isButtonPressed[3], report.isButtonPressed[4]);
   PS2BLE_LOGI(report.toString());
 }
 
