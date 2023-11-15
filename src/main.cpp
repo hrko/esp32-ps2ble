@@ -286,10 +286,8 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
           PS2BLE_LOGE(fmt::format("scanCode not found for 0x{:04X}", lastPressedKey));
           continue;
         }
-        auto packet = esp32_ps2dev::PS2Packet();
-        std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
-        packet.len = scanCode->getCode()->size();
-        keyboard.send_packet_to_queue(packet);
+        auto scanCodeData = *scanCode->getCode();
+        keyboard.send_scancode(scanCodeData);
       }
     }
     // check for key down
@@ -301,10 +299,8 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
           PS2BLE_LOGE(fmt::format("scanCode not found for 0x{:04X}", currentPressedKey));
           continue;
         }
-        auto packet = esp32_ps2dev::PS2Packet();
-        std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
-        packet.len = scanCode->getCode()->size();
-        keyboard.send_packet_to_queue(packet);
+        auto scanCodeData = *scanCode->getCode();
+        keyboard.send_scancode(scanCodeData);
       }
     }
   } else {
@@ -315,10 +311,8 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
         PS2BLE_LOGE(fmt::format("scanCode not found for 0x{:04X}", pressedKey));
         continue;
       }
-      auto packet = esp32_ps2dev::PS2Packet();
-      std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
-      packet.len = scanCode->getCode()->size();
-      keyboard.send_packet_to_queue(packet);
+      auto scanCodeData = *scanCode->getCode();
+      keyboard.send_scancode(scanCodeData);
     }
   }
   // update last report
