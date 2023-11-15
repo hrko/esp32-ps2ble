@@ -37,6 +37,7 @@
   } while (0)
 
 // clang-format off
+#define PS2BLE_LOG(str) serialPrint(str)
 #define PS2BLE_LOGE(str) do {} while (0)
 #define PS2BLE_LOGW(str) do {} while (0)
 #define PS2BLE_LOGI(str) do {} while (0)

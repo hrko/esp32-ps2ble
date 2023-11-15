@@ -571,7 +571,7 @@ void setup() {
   // handle GET to fetch frontend files
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("public,max-age=31536000");
   server.begin();
-  PS2BLE_LOGI(fmt::format("HTTP server started at http://{}", ipStr));
+  PS2BLE_LOG(fmt::format("HTTP server started at http://{}", ipStr));
 
   xQueueScanMode = xQueueCreate(1, sizeof(uint8_t));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
