@@ -23,7 +23,8 @@ extern "C" {
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <WiFi.h>
-#include <esp32-ps2dev.h>
+#include <PS2Mouse.hpp>
+#include <PS2Keyboard.hpp>
 
 AsyncWebServer server(80);
 esp32_ps2dev::PS2Mouse mouse(17, 16);
