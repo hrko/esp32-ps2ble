@@ -289,7 +289,7 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
         auto packet = esp32_ps2dev::PS2Packet();
         std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
         packet.len = scanCode->getCode()->size();
-        keyboard.send_packet(packet);
+        keyboard.send_packet_to_queue(packet);
       }
     }
     // check for key down
@@ -304,7 +304,7 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
         auto packet = esp32_ps2dev::PS2Packet();
         std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
         packet.len = scanCode->getCode()->size();
-        keyboard.send_packet(packet);
+        keyboard.send_packet_to_queue(packet);
       }
     }
   } else {
@@ -318,7 +318,7 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
       auto packet = esp32_ps2dev::PS2Packet();
       std::memcpy(packet.data, scanCode->getCode()->begin(), scanCode->getCode()->size());
       packet.len = scanCode->getCode()->size();
-      keyboard.send_packet(packet);
+      keyboard.send_packet_to_queue(packet);
     }
   }
   // update last report
@@ -474,6 +474,7 @@ void setup() {
   Serial.begin(115200);
 
   PS2BLE_LOG_START();
+  PS2DEV_LOG_START();
 
   // LittleFS init
   PS2BLE_LOGI("Starting LittleFS");
