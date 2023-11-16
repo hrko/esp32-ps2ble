@@ -32,18 +32,6 @@ AsyncWebServer server(80);
 esp32_ps2dev::PS2Mouse mouse(17, 16);
 esp32_ps2dev::PS2Keyboard keyboard(19, 18);
 
-const uint16_t APPEARANCE_HID_GENERIC = 0x3C0;
-const uint16_t APPEARANCE_HID_KEYBOARD = 0x3C1;
-const uint16_t APPEARANCE_HID_MOUSE = 0x3C2;
-const uint16_t APPEARANCE_HID_JOYSTICK = 0x3C3;
-const uint16_t APPEARANCE_HID_GAMEPAD = 0x3C4;
-const uint16_t APPEARANCE_HID_DIGITIZER_TABLET = 0x3C5;
-const uint16_t APPEARANCE_HID_CARD_READER = 0x3C6;
-const uint16_t APPEARANCE_HID_DIGITAL_PEN = 0x3C7;
-const uint16_t APPEARANCE_HID_BARCODE_SCANNER = 0x3C8;
-const uint16_t APPEARANCE_HID_TOUCHPAD = 0x3C9;
-const uint16_t APPEARANCE_HID_PRESENTATION_REMOTE = 0x3CA;
-
 const char CUUID_HID_SERVICE[] = "1812";
 const char CUUID_HID_INFORMATION[] = "2A4A";
 const char CUUID_HID_REPORT_MAP[] = "2A4B";
