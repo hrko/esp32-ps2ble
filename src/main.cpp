@@ -95,20 +95,6 @@ class ClientCallbacks : public NimBLEClientCallbacks {
   };
 };
 
-void notifyCB(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
-  auto addr = std::string(pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress());
-  auto svc = std::string(pRemoteCharacteristic->getRemoteService()->getUUID());
-  auto chr = std::string(pRemoteCharacteristic->getUUID());
-  auto handle = fmt::format("0x{:02X}", pRemoteCharacteristic->getHandle());
-  auto value = std::string();
-  for (size_t i = 0; i < length; i++) {
-    fmt::format_to(std::back_inserter(value), "{:02X},", pData[i]);
-  }
-  auto str = fmt::format("{} from {} : Service = {}, Characteristic = {}, Handle = {}, Value = {}",
-                         isNotify ? "Notification" : "Indication", addr, svc, chr, handle, value);
-  PS2BLE_LOGI(str);
-}
-
 static ClientCallbacks clientCB;
 
 bool isBondedDevice(NimBLEAdvertisedDevice* advertisedDevice) {
@@ -161,8 +147,6 @@ class AdvertisedDeviceCallbacksBoundedDeviceOnly : public NimBLEAdvertisedDevice
 
 void scanCompleteCB(NimBLEScanResults) {
   PS2BLE_LOGI("Scan complete");
-  // auto mode = ScanMode::NewDeviceAndBoundedDevice;
-  // xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
 }
 
 void taskScan(void* arg) {
