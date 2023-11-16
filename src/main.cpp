@@ -21,9 +21,9 @@ extern "C" {
 #include <ArduinoNvs.h>
 #include <AsyncJson.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 #include <LittleFS.h>
 #include <WiFi.h>
-#include <ESPmDNS.h>
 
 #include <PS2Keyboard.hpp>
 #include <PS2Mouse.hpp>
@@ -79,18 +79,11 @@ class ClientCallbacks : public NimBLEClientCallbacks {
   void onConnect(NimBLEClient* pClient) {
     auto output = fmt::format("Connected to: {}", pClient->getPeerAddress().toString());
     PS2BLE_LOGI(output);
-    // pClient->updateConnParams(120, 120, 0, 60);
-    PS2BLE_LOGI("Triggering scan");
-    auto mode = ScanMode::NewDeviceAndBoundedDevice;
-    xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
   };
 
   void onDisconnect(NimBLEClient* pClient) {
     auto output = fmt::format("Disconnected from: {}", pClient->getPeerAddress().toString());
     PS2BLE_LOGI(output);
-    PS2BLE_LOGI("Triggering scan");
-    auto mode = ScanMode::NewDeviceAndBoundedDevice;
-    xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
   };
 
   bool onConnParamsUpdateRequest(NimBLEClient* pClient, const ble_gap_upd_params* params) { return true; };
@@ -155,6 +148,7 @@ class AdvertisedDeviceCallbacksNewDeviceOnly : public NimBLEAdvertisedDeviceCall
     if (isBondedDevice(advertisedDevice)) return;
     if (isAdvertisingHIDService(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
+      PS2BLE_LOGI("Found new device advertising HID service");
     }
   };
 };
@@ -163,6 +157,7 @@ class AdvertisedDeviceCallbacksNewDeviceAndBoundedDevice : public NimBLEAdvertis
   void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
     if (isBondedDevice(advertisedDevice) || isAdvertisingHIDService(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
+      PS2BLE_LOGI("Found new device advertising HID service or bonded device");
     }
   };
 };
@@ -171,6 +166,7 @@ class AdvertisedDeviceCallbacksBoundedDeviceOnly : public NimBLEAdvertisedDevice
   void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
     if (isBondedDevice(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
+      PS2BLE_LOGI("Found bonded device");
     }
   };
 };
@@ -189,22 +185,33 @@ void taskScan(void* arg) {
   scan->setInterval(45);
   scan->setWindow(15);
   scan->setActiveScan(true);
+  ScanMode lastScanMode = ScanMode::NewDeviceAndBoundedDevice;
   ScanMode scanMode;
 
   while (true) {
-    if (xQueueReceive(xQueueScanMode, &scanMode, portMAX_DELAY) == pdTRUE) {
+    delay(100);
+    if (xQueuePeek(xQueueScanMode, &scanMode, portMAX_DELAY) == pdTRUE) {
       if (scan->isScanning()) {
-        scan->stop();
+        if (scanMode == lastScanMode) {
+          PS2BLE_LOGV("Scan mode unchanged");
+          continue;
+        } else {
+          PS2BLE_LOGD("Scan mode changed, stopping scan");
+          scan->stop();
+        }
       }
 
       switch (scanMode) {
         case ScanMode::NewDeviceOnly:
+          PS2BLE_LOGI("Scan mode: NewDeviceOnly");
           scan->setAdvertisedDeviceCallbacks(&newDeviceOnlyCallbacks);
           break;
         case ScanMode::NewDeviceAndBoundedDevice:
+          PS2BLE_LOGI("Scan mode: NewDeviceAndBoundedDevice");
           scan->setAdvertisedDeviceCallbacks(&newDeviceAndBoundedDeviceCallbacks);
           break;
         case ScanMode::BoundedDeviceOnly:
+          PS2BLE_LOGI("Scan mode: BoundedDeviceOnly");
           scan->setAdvertisedDeviceCallbacks(&boundedDeviceOnlyCallbacks);
           break;
         default:
@@ -212,6 +219,8 @@ void taskScan(void* arg) {
       }
 
       scan->start(0, scanCompleteCB);
+      lastScanMode = scanMode;
+      PS2BLE_LOGI("Scan started");
     }
   }
 }
@@ -572,7 +581,7 @@ void setup() {
   server.begin();
   PS2BLE_LOG(fmt::format("HTTP server started at http://{}", ipStr));
 
-  xQueueScanMode = xQueueCreate(1, sizeof(uint8_t));
+  xQueueScanMode = xQueueCreate(1, sizeof(ScanMode));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
   xQueueClientToSubscribe = xQueueCreate(9, sizeof(NimBLEClient*));
 
@@ -581,13 +590,13 @@ void setup() {
   xTaskCreateUniversal(taskSubscribe, "taskSubscribe", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
 
   auto mode = ScanMode::NewDeviceAndBoundedDevice;
-  auto ret = xQueueSend(xQueueScanMode, &mode, portMAX_DELAY);
+  auto ret = xQueueOverwrite(xQueueScanMode, &mode);
   if (ret != pdTRUE) {
-    PS2BLE_LOGE("xQueueSend failed for xQueueScanMode");
+    PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
   }
 }
 
 void loop() {
-  delay(1000);
-  // serialPrintln(fmt::format("Free heap: {}", ESP.getFreeHeap()));
+  delay(10000);
+  PS2BLE_LOGD(fmt::format("Free heap: {}", ESP.getFreeHeap()));
 }
