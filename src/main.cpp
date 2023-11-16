@@ -23,6 +23,7 @@ extern "C" {
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
 
 #include <PS2Keyboard.hpp>
 #include <PS2Mouse.hpp>
@@ -491,6 +492,13 @@ void setup() {
   }
   auto ipStr = std::string(WiFi.localIP().toString().c_str());
   PS2BLE_LOGI(fmt::format("WiFi connected, IP address: {}", ipStr));
+
+  // MDNS init
+  PS2BLE_LOGI("Starting mDNS");
+  if (!MDNS.begin("ps2ble")) {
+    PS2BLE_LOGE("mDNS init failed");
+  }
+  MDNS.addService("http", "tcp", 80);
 
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
