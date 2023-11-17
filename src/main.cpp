@@ -317,100 +317,115 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   PS2BLE_LOGI(report.toString());
 }
 
+void cacheReportMap(NimBLEClient* client, NimBLERemoteService* service) {
+  auto isReportMapCached = ReportMapCache.find(client->getPeerAddress()) != ReportMapCache.end();
+  if (!isReportMapCached) {
+    auto characteristic = service->getCharacteristic(CUUID_HID_REPORT_MAP);
+    if (characteristic != nullptr) {
+      auto value = characteristic->readValue();
+      auto rawReportMap = value.data();
+      auto rawReportMapLength = value.length();
+      auto reportMap = new ReportMap(rawReportMap, rawReportMapLength);
+      ReportMapCache[client->getPeerAddress()] = reportMap;
+    }
+  }
+}
+
+void cacheHandleReportIDMap(NimBLEClient* client, const std::vector<NimBLERemoteCharacteristic*>& characteristicsHidReport) {
+  auto isHandleReportIDMapCached = HandleReportIDMapCache.find(client->getPeerAddress()) != HandleReportIDMapCache.end();
+  if (!isHandleReportIDMapCached) {
+    HandleReportIDMap handleReportIDMap;
+    for (auto& c : characteristicsHidReport) {
+      auto handle = c->getHandle();
+      auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
+      auto value = desc->readValue();
+      if (value.size() != 2) continue;
+      auto reportId = value[0];
+      handleReportIDMap[handle] = reportId;
+    }
+    HandleReportIDMapCache[client->getPeerAddress()] = handleReportIDMap;
+  }
+}
+
+std::vector<NimBLERemoteCharacteristic*> getHIDReportCharacteristics(NimBLERemoteService* service) {
+  auto characteristics = service->getCharacteristics(true);
+  auto characteristicsHidReport = std::vector<NimBLERemoteCharacteristic*>();
+  for (auto& c : *characteristics) {
+    if (c->getUUID() == NimBLEUUID(CUUID_HID_REPORT_DATA)) {
+      characteristicsHidReport.push_back(c);
+    }
+  }
+  return characteristicsHidReport;
+}
+
+void subscribeToReport(NimBLEClient* client, NimBLERemoteCharacteristic* characteristic, const ReportItemList* reportItemList) {
+  auto reportId = reportItemList->getReportID();
+  auto usagePage = reportItemList->getUsagePage();
+  auto usageID = reportItemList->getUsageID();
+
+  auto isKeyboard = usagePage == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
+                    usageID == static_cast<usageID_t>(UsageIDGenericDesktop::KEYBOARD);
+  auto isConsumerControl =
+      usagePage == static_cast<usagePage_t>(UsagePage::CONSUMER) && usageID == static_cast<usageID_t>(UsageIDConsumer::CONSUMERCONTROL);
+  auto isMouse =
+      usagePage == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) && usageID == static_cast<usageID_t>(UsageIDGenericDesktop::MOUSE);
+
+  if (isKeyboard || isConsumerControl) {
+    auto ok = characteristic->subscribe(true, notifyCallbackKeyboardHIDReport);
+    if (ok) {
+      PS2BLE_LOGI(fmt::format("Subscribed to reportID: {}", reportId));
+    } else {
+      PS2BLE_LOGE(fmt::format("Failed to subscribe to reportID: {}", reportId));
+    }
+  }
+
+  if (isMouse) {
+    auto ok = characteristic->subscribe(true, notifyCallbackMouseHIDReport);
+    if (ok) {
+      PS2BLE_LOGI(fmt::format("Subscribed to reportID: {}", reportId));
+    } else {
+      PS2BLE_LOGE(fmt::format("Failed to subscribe to reportID: {}", reportId));
+    }
+  }
+}
+
+void subscribeHIDReportCharacteristics(NimBLEClient* client, const std::vector<NimBLERemoteCharacteristic*>& characteristicsHidReport) {
+  for (auto& c : characteristicsHidReport) {
+    auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
+    auto value = desc->readValue();
+    if (value.size() != 2) continue;
+    auto reportId = value[0];
+    auto reportType = value[1];
+    if (reportType != ESP_HID_REPORT_TYPE_INPUT) continue;
+    auto reportMap = ReportMapCache[client->getPeerAddress()];
+    auto inputReportItemLists = reportMap->getInputReportItemLists();
+    for (auto& inputReportItemList : inputReportItemLists) {
+      auto reportItemList = inputReportItemList.second;
+      if (reportId == reportItemList->getReportID()) {
+        subscribeToReport(client, c, reportItemList);
+      }
+    }
+  }
+}
+
+void subscribeToHIDService(NimBLEClient* client) {
+  NimBLERemoteService* service = client->getService(CUUID_HID_SERVICE);
+  if (service == nullptr) {
+    PS2BLE_LOGI("HID service not found");
+    client->disconnect();
+    return;
+  }
+  cacheReportMap(client, service);
+  auto characteristicsHidReport = getHIDReportCharacteristics(service);
+  cacheHandleReportIDMap(client, characteristicsHidReport);
+  subscribeHIDReportCharacteristics(client, characteristicsHidReport);
+}
+
 void taskSubscribe(void* arg) {
   NimBLEClient* client;
   while (true) {
     if (xQueueReceive(xQueueClientToSubscribe, &client, portMAX_DELAY) == pdTRUE) {
-      NimBLERemoteService* service = nullptr;
-      NimBLERemoteCharacteristic* characteristic = nullptr;
-
-      service = client->getService(CUUID_HID_SERVICE);
-      if (service == nullptr) {
-        PS2BLE_LOGI("HID service not found");
-        client->disconnect();
-        continue;
-      }
-
-      // Cache report map
-      auto isReportMapCached = ReportMapCache.find(client->getPeerAddress()) != ReportMapCache.end();
-      if (!isReportMapCached) {
-        characteristic = service->getCharacteristic(CUUID_HID_REPORT_MAP);
-        if (characteristic != nullptr) {
-          auto value = characteristic->readValue();
-          auto rawReportMap = value.data();
-          auto rawReportMapLength = value.length();
-          auto reportMap = new ReportMap(rawReportMap, rawReportMapLength);
-          ReportMapCache[client->getPeerAddress()] = reportMap;
-        }
-      }
-
-      auto characteristics = service->getCharacteristics(true);
-      auto characteristicsHidReport = std::vector<NimBLERemoteCharacteristic*>();
-      for (auto& c : *characteristics) {
-        if (c->getUUID() == NimBLEUUID(CUUID_HID_REPORT_DATA)) {
-          characteristicsHidReport.push_back(c);
-        }
-      }
-
-      // Cache handle report id map
-      auto isHandleReportIDMapCached = HandleReportIDMapCache.find(client->getPeerAddress()) != HandleReportIDMapCache.end();
-      if (!isHandleReportIDMapCached) {
-        auto handleReportIDMap = HandleReportIDMap();
-        for (auto& c : characteristicsHidReport) {
-          auto handle = c->getHandle();
-          auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
-          auto value = desc->readValue();
-          if (value.size() != 2) continue;
-          auto reportId = value[0];
-          handleReportIDMap[handle] = reportId;
-        }
-        HandleReportIDMapCache[client->getPeerAddress()] = handleReportIDMap;
-      }
-
-      // subscribe keyboard hid report characteristic
-      for (auto& c : characteristicsHidReport) {
-        auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
-        auto value = desc->readValue();
-        if (value.size() != 2) continue;
-        auto reportId = value[0];
-        auto reportType = value[1];
-        // only subscribe where report_type is INPUT
-        if (reportType != ESP_HID_REPORT_TYPE_INPUT) continue;
-        auto reportMap = ReportMapCache[client->getPeerAddress()];
-        auto inputReportItemLists = reportMap->getInputReportItemLists();
-        // search for corresponding reportItemList
-        for (auto& inputReportItemList : inputReportItemLists) {
-          auto reportItemList = inputReportItemList.second;
-          if (reportId == reportItemList->getReportID()) {
-            auto isKeyboard = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
-                              reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDGenericDesktop::KEYBOARD);
-            auto isConsumerControl = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::CONSUMER) &&
-                                     reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDConsumer::CONSUMERCONTROL);
-            auto isMouse = reportItemList->getUsagePage() == static_cast<usagePage_t>(UsagePage::GENERIC_DESKTOP) &&
-                           reportItemList->getUsageID() == static_cast<usageID_t>(UsageIDGenericDesktop::MOUSE);
-            if (isKeyboard || isConsumerControl) {
-              auto result = c->subscribe(true, notifyCallbackKeyboardHIDReport);
-              if (result) {
-                auto serialOutput = fmt::format("Subscribed to reportID: {}", reportId);
-                PS2BLE_LOGI(serialOutput);
-              } else {
-                auto serialOutput = fmt::format("Failed to subscribe to reportID: {}", reportId);
-                PS2BLE_LOGE(serialOutput);
-              }
-            }
-            if (isMouse) {
-              auto result = c->subscribe(true, notifyCallbackMouseHIDReport);
-              if (result) {
-                auto serialOutput = fmt::format("Subscribed to reportID: {}", reportId);
-                PS2BLE_LOGI(serialOutput);
-              } else {
-                auto serialOutput = fmt::format("Failed to subscribe to reportID: {}", reportId);
-                PS2BLE_LOGE(serialOutput);
-              }
-            }
-          }
-        }
-      }
+      subscribeToHIDService(client);
     }
   }
   vTaskDelete(NULL);
