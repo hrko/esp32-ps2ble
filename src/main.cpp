@@ -367,20 +367,6 @@ void taskSubscribe(void* arg) {
         HandleReportIDMapCache[client->getPeerAddress()] = handleReportIDMap;
       }
 
-      // print hid report characteristic for debug
-      for (auto& c : characteristicsHidReport) {
-        auto handle = c->getHandle();
-        auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
-        auto value = desc->readValue();
-        if (value.size() != 2) continue;
-        auto reportId = value[0];
-        auto reportType = esp_hid_report_type_str(value[1]);
-        // only print where report_type is INPUT
-        if (value[1] != ESP_HID_REPORT_TYPE_INPUT) continue;
-        auto serialOutput = fmt::format("handle: 0x{:02X}, report_id: {}, report_type: {}", handle, reportId, reportType);
-        PS2BLE_LOGD(serialOutput);
-      }
-
       // subscribe keyboard hid report characteristic
       for (auto& c : characteristicsHidReport) {
         auto desc = c->getDescriptor(NimBLEUUID(DUUID_HID_REPORT_REFERENCE));
