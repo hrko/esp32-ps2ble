@@ -145,9 +145,7 @@ class AdvertisedDeviceCallbacksBoundedDeviceOnly : public NimBLEAdvertisedDevice
   };
 };
 
-void scanCompleteCB(NimBLEScanResults) {
-  PS2BLE_LOGI("Scan complete");
-}
+void scanCompleteCB(NimBLEScanResults) { PS2BLE_LOGI("Scan complete"); }
 
 void taskScan(void* arg) {
   AdvertisedDeviceCallbacksNewDeviceOnly newDeviceOnlyCallbacks;
