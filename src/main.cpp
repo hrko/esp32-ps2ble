@@ -312,8 +312,8 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   auto reportMap = ReportMapCache[addr];
   auto reportItemList = reportMap->getInputReportItemList(reportID);
   auto report = decodeMouseInputReport(pData, *reportItemList);
-  mouse.move_and_buttons(report.x, -report.y, report.wheelVertical, report.isButtonPressed[0], report.isButtonPressed[1],
-                         report.isButtonPressed[2], report.isButtonPressed[3], report.isButtonPressed[4]);
+  mouse.send_report(report.x, -report.y, report.wheelVertical, report.isButtonPressed[0], report.isButtonPressed[1],
+                    report.isButtonPressed[2], report.isButtonPressed[3], report.isButtonPressed[4]);
   PS2BLE_LOGI(report.toString());
 }
 
