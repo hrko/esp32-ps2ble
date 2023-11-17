@@ -188,9 +188,13 @@ void taskScan(void* arg) {
           continue;
       }
 
-      scan->start(0, scanCompleteCB);
-      lastScanMode = scanMode;
-      PS2BLE_LOGI("Scan started");
+      auto ok = scan->start(0, scanCompleteCB);
+      if (!ok) {
+        PS2BLE_LOGV("Failed to start scan");
+      } else {
+        lastScanMode = scanMode;
+        PS2BLE_LOGI("Scan started");
+      }
     }
   }
 }
