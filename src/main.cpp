@@ -440,6 +440,47 @@ void taskKeyboardBegin(void* arg) {
   vTaskDelete(NULL);
 }
 
+void wifiEventCallback(WiFiEvent_t event) {
+  switch (event) {
+    case SYSTEM_EVENT_STA_START:
+      PS2BLE_LOGI("WiFi client started");
+      break;
+    case SYSTEM_EVENT_STA_STOP:
+      PS2BLE_LOGI("WiFi client stopped");
+      break;
+    case SYSTEM_EVENT_STA_CONNECTED:
+      PS2BLE_LOGI("WiFi connected");
+      PS2BLE_LOGI(fmt::format("SSID: {}", std::string(WiFi.SSID().c_str())));
+      break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+      PS2BLE_LOGI(fmt::format("IP address: {}", std::string(WiFi.localIP().toString().c_str())));
+      break;
+    case SYSTEM_EVENT_STA_LOST_IP:
+      PS2BLE_LOGI("WiFi lost IP address");
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      PS2BLE_LOGI("WiFi disconnected");
+      break;
+    case SYSTEM_EVENT_AP_START:
+      PS2BLE_LOGI("WiFi AP started");
+      break;
+    case SYSTEM_EVENT_AP_STOP:
+      PS2BLE_LOGI("WiFi AP stopped");
+      break;
+    case SYSTEM_EVENT_AP_STACONNECTED:
+      PS2BLE_LOGI("WiFi AP client connected");
+      break;
+    case SYSTEM_EVENT_AP_STADISCONNECTED:
+      PS2BLE_LOGI("WiFi AP client disconnected");
+      break;
+    case SYSTEM_EVENT_AP_STAIPASSIGNED:
+      PS2BLE_LOGI("WiFi AP client IP assigned");
+      break;
+    default:
+      break;
+  }
+}
+
 void setup() {
   xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
   xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
@@ -467,14 +508,9 @@ void setup() {
   // WiFi.softAP(AP_SSID, AP_PASSWORD);
 
   PS2BLE_LOGI("Starting WiFi");
+  WiFi.onEvent(wifiEventCallback);
   WiFi.mode(WIFI_STA);
   WiFi.begin(STA_SSID, STA_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    PS2BLE_LOGI("Waiting for WiFi connection");
-  }
-  auto ipStr = std::string(WiFi.localIP().toString().c_str());
-  PS2BLE_LOGI(fmt::format("WiFi connected, IP address: {}", ipStr));
 
   // MDNS init
   PS2BLE_LOGI("Starting mDNS");
@@ -553,7 +589,7 @@ void setup() {
   // handle GET to fetch frontend files
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("public,max-age=31536000");
   server.begin();
-  PS2BLE_LOG(fmt::format("HTTP server started at http://{}", ipStr));
+  PS2BLE_LOG("HTTP server started");
 
   xQueueScanMode = xQueueCreate(1, sizeof(ScanMode));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
