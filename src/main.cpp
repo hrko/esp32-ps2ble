@@ -210,6 +210,60 @@ void taskScan(void* arg) {
 
 const char SERVICE_UUID_GENERIC_ACCESS[] = "1800";
 const char CHARACTERISTIC_UUID_DEVICE_NAME[] = "2A00";
+const char CHARACTERISTIC_UUID_APPEARANCE[] = "2A01";
+const std::uint16_t APPEARANCE_GENERIC_HID = 960;
+const std::uint16_t APPEARANCE_HID_KEYBOARD = 961;
+const std::uint16_t APPEARANCE_HID_MOUSE = 962;
+
+std::uint16_t getAppearance(NimBLEClient* client) {
+  auto service = client->getService(NimBLEUUID(SERVICE_UUID_GENERIC_ACCESS));
+  if (service == nullptr) {
+    PS2BLE_LOGE("Generic Access service not found");
+    return 0;
+  }
+  auto characteristic = service->getCharacteristic(NimBLEUUID(CHARACTERISTIC_UUID_APPEARANCE));
+  if (characteristic == nullptr) {
+    PS2BLE_LOGE("Appearance characteristic not found");
+    return 0;
+  }
+  auto value = characteristic->readValue();
+  if (value.length() != 2) {
+    PS2BLE_LOGE("Appearance value length is not 2");
+    return 0;
+  }
+  auto appearance = value[0] | (value[1] << 8);
+  return appearance;
+}
+
+std::string getAppearanceName(std::uint16_t appearance) {
+  switch (appearance) {
+    case APPEARANCE_GENERIC_HID:
+      return "Generic HID";
+    case APPEARANCE_HID_KEYBOARD:
+      return "Keyboard";
+    case APPEARANCE_HID_MOUSE:
+      return "Mouse";
+    default:
+      return "Unknown";
+  }
+}
+
+bool saveAppearanceToNVS(NimBLEClient* client) {
+  auto appearance = getAppearance(client);
+  if (appearance == 0) {
+    PS2BLE_LOGE("Failed to get appearance");
+    return false;
+  }
+  auto addr = client->getPeerAddress();
+  auto key = stripColon(addr.toString() + "AP");
+  auto ok = NVS.setInt(key.c_str(), appearance);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to save bonded device appearance to NVS");
+    return false;
+  }
+  PS2BLE_LOGI(fmt::format("Saved bonded device appearance to NVS: {} = {}", addr.toString(), appearance));
+  return true;
+}
 
 std::string getDeviceName(NimBLEClient* client) {
   auto service = client->getService(NimBLEUUID(SERVICE_UUID_GENERIC_ACCESS));
@@ -278,6 +332,10 @@ void taskConnect(void* arg) {
         auto ok = saveDeviceNameToNVS(client);
         if (!ok) {
           PS2BLE_LOGE("Failed to save device name to NVS");
+        }
+        ok = saveAppearanceToNVS(client);
+        if (!ok) {
+          PS2BLE_LOGE("Failed to save appearance to NVS");
         }
         subscribeToHIDService(client);
       } else {

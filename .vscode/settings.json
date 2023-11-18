@@ -54,7 +54,10 @@
     "chrono": "cpp",
     "ratio": "cpp",
     "bitset": "cpp",
-    "regex": "cpp"
+    "regex": "cpp",
+    "csetjmp": "cpp",
+    "csignal": "cpp",
+    "*.ipp": "cpp"
   },
   "editor.renderWhitespace": "boundary"
 }
