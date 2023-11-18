@@ -11,10 +11,10 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
-import BluetoothConnectedRoundedIcon from "@mui/icons-material/BluetoothConnectedRounded";
-import DeviceUnknownRoundedIcon from "@mui/icons-material/DeviceUnknownRounded";
-import MouseRoundedIcon from "@mui/icons-material/MouseRounded";
-import KeyboardRoundedIcon from "@mui/icons-material/KeyboardRounded";
+import BluetoothConnectedOutlinedIcon from "@mui/icons-material/BluetoothConnectedOutlined";
+import DeviceUnknownOutlinedIcon from "@mui/icons-material/DeviceUnknownOutlined";
+import MouseOutlinedIcon from "@mui/icons-material/MouseOutlined";
+import KeyboardOutlinedIcon from "@mui/icons-material/KeyboardOutlined";
 
 function ConnectedChip() {
   return (
@@ -22,7 +22,7 @@ function ConnectedChip() {
       label="接続済み"
       variant="outlined"
       size="small"
-      icon={<BluetoothConnectedRoundedIcon />}
+      icon={<BluetoothConnectedOutlinedIcon />}
     />
   );
 }
@@ -30,13 +30,13 @@ function ConnectedChip() {
 function DeviceAppearanceIcon({ appearance }) {
   switch (appearance) {
     case "Generic HID":
-      return <DeviceUnknownRoundedIcon fontSize="large" />;
+      return <DeviceUnknownOutlinedIcon fontSize="large" />;
     case "Keyboard":
-      return <KeyboardRoundedIcon fontSize="large" />;
+      return <KeyboardOutlinedIcon fontSize="large" />;
     case "Mouse":
-      return <MouseRoundedIcon fontSize="large" />;
+      return <MouseOutlinedIcon fontSize="large" />;
     default:
-      return <DeviceUnknownRoundedIcon fontSize="large" />;
+      return <DeviceUnknownOutlinedIcon fontSize="large" />;
   }
 }
 
