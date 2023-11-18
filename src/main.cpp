@@ -1,5 +1,6 @@
 // clang-format off
 #include <fmt/core.h>
+#include <boost/circular_buffer.hpp>
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 // clang-format on
@@ -309,12 +310,14 @@ class MouseStatus {
  public:
   MouseReport lastReport;
   unsigned long lastReportTimeMicros = 0;  // if isMergingEnabled is true, this won't be updated
+  boost::circular_buffer<bool> shortIntervalsFlag = boost::circular_buffer<bool>(5);
   bool isMergingEnabled = false;
   bool isLastReportNotSent = false;
 };
 std::map<std::pair<NimBLEAddress, reportID_t>, MouseStatus> MouseStatusMap;
 void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
   constexpr auto MinReportIntervalMicros = 10000UL;
+  constexpr auto ShortIntervalsCountThreshold = 4;
 
   const auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
   const auto handle = pRemoteCharacteristic->getHandle();
@@ -343,8 +346,18 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   // Since the ESP32's PS/2 emulation is software-based, too frequent reporting will cause the ESP32 to run out of CPU resources.
   const auto reportIntervalMicros = currentReportTimeMicros - lastReportTimeMicros;
   if (!mouseStatus.isMergingEnabled && reportIntervalMicros < MinReportIntervalMicros) {
-    PS2BLE_LOGI(fmt::format("Report from {} comes too frequently ({} us), enable merging", addr.toString(), reportIntervalMicros));
-    mouseStatus.isMergingEnabled = true;
+    mouseStatus.shortIntervalsFlag.push_back(true);
+    if (mouseStatus.shortIntervalsFlag.size() == mouseStatus.shortIntervalsFlag.capacity()) {
+      auto shortIntervalsCount = 0;
+      for (auto& flag : mouseStatus.shortIntervalsFlag) {
+        if (flag) shortIntervalsCount++;
+      }
+      if (shortIntervalsCount >= ShortIntervalsCountThreshold) {
+        mouseStatus.isMergingEnabled = true;
+        PS2BLE_LOGI(fmt::format("Report from {} comes too frequently {} times out of {}, enable merging", addr.toString(),
+                                shortIntervalsCount, mouseStatus.shortIntervalsFlag.capacity()));
+      }
+    }
   }
 
   // Check if button state is changed since last report.
