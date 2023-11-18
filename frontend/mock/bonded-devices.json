@@ -4,31 +4,57 @@
       "address": "d2:f9:89:dd:cd:81",
       "addressType": 1,
       "name": "Logi M750",
+      "appearance": "Mouse",
       "isConnected": false
     },
     {
       "address": "f3:2c:f5:36:4d:f7",
       "addressType": 1,
       "name": "MX Keys",
+      "appearance": "Keyboard",
       "isConnected": false
     },
     {
       "address": "db:e9:33:80:a2:91",
       "addressType": 1,
       "name": "Logi M750",
+      "appearance": "Mouse",
       "isConnected": false
     },
     {
       "address": "c1:19:2d:08:75:00",
       "addressType": 1,
       "name": "ELECOM TK-FBM119",
+      "appearance": "Keyboard",
       "isConnected": false
     },
     {
       "address": "ea:5c:68:43:87:f7",
       "addressType": 1,
       "name": "MX Keys",
+      "appearance": "Keyboard",
       "isConnected": true
+    },
+    {
+      "address": "b6:d5:f8:bf:86:fa",
+      "addressType": 1,
+      "name": "Generic HID",
+      "appearance": "Generic HID",
+      "isConnected": false
+    },
+    {
+      "address": "d5:54:d9:8e:56:75",
+      "addressType": 1,
+      "name": "Unknown",
+      "appearance": "Unknown",
+      "isConnected": false
+    },
+    {
+      "address": "7f:ce:d3:e9:43:33",
+      "addressType": 1,
+      "name": "",
+      "appearance": "Unknown",
+      "isConnected": false
     }
   ]
 }
