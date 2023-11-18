@@ -90,7 +90,7 @@ function DeleteDeviceButton({ address, addressType, onDelete }) {
   return (
     <React.Fragment>
       <Button variant="contained" color="secondary" onClick={handleClickOpen}>
-        削除
+        Delete
       </Button>
       <Dialog
         open={open}
