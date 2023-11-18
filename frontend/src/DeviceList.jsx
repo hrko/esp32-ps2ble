@@ -40,6 +40,14 @@ function DeviceAppearanceIcon({ appearance }) {
   }
 }
 
+function SanitizedDeviceName(name) {
+  if (name === "") {
+    return "(No name)";
+  } else {
+    return name;
+  }
+}
+
 function DeviceList({ devices, onDelete }) {
   return (
     <List>
@@ -52,7 +60,10 @@ function DeviceList({ devices, onDelete }) {
           <ListItemIcon>
             <DeviceAppearanceIcon appearance={device.appearance} />
           </ListItemIcon>
-          <ListItemText primary={device.name} secondary={device.address} />
+          <ListItemText
+            primary={SanitizedDeviceName(device.name)}
+            secondary={device.address}
+          />
           <Stack direction="row" spacing={3} alignItems={"center"}>
             {device.isConnected && <ConnectedChip />}
             <DeleteDeviceButton
