@@ -751,12 +751,14 @@ void setup() {
       auto addrType = addr.getType();
       auto key = stripColon(addrStr);
       auto name = readDeviceNameFromNVS(addr);
+      auto appearance = getAppearanceName(readAppearanceFromNVS(addr));
       auto clinet = NimBLEDevice::getClientByPeerAddress(addr);
       auto isConnected = clinet != nullptr && clinet->isConnected();
       auto bondedDevice = bondedDevices.createNestedObject();
       bondedDevice["address"] = addrStr;
       bondedDevice["addressType"] = addrType;
       bondedDevice["name"] = name;
+      bondedDevice["appearance"] = appearance;
       bondedDevice["isConnected"] = isConnected;
     }
     String output;
