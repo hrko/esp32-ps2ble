@@ -669,5 +669,7 @@ void setup() {
 
 void loop() {
   delay(10000);
-  PS2BLE_LOGD(fmt::format("Free heap: {}", ESP.getFreeHeap()));
+  // Monitor memory usage for debugging
+  PS2BLE_LOGD(
+      fmt::format("Free heap: {}/{} ({:.2f}%)", ESP.getFreeHeap(), ESP.getHeapSize(), ESP.getFreeHeap() * 100.0 / ESP.getHeapSize()));
 }
