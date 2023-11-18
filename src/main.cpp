@@ -282,6 +282,7 @@ void taskConnect(void* arg) {
         subscribeToHIDService(client);
       } else {
         PS2BLE_LOGI(fmt::format("Failed to connect to: {}", client->getPeerAddress().toString()));
+        BLEDevice::deleteClient(client);
       }
 
       // Restore scan mode.
