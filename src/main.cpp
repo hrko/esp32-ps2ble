@@ -44,6 +44,7 @@ enum class ScanMode : uint8_t {
   NewDeviceOnly,
   NewDeviceAndBoundedDevice,
   BoundedDeviceOnly,
+  Disabled,
 };
 
 QueueHandle_t xQueueScanMode;
@@ -53,6 +54,8 @@ QueueHandle_t xQueueClientToSubscribe;
 using HandleReportIDMap = std::map<uint16_t, reportID_t>;
 std::map<NimBLEAddress, HandleReportIDMap> HandleReportIDMapCache;
 std::map<NimBLEAddress, ReportMap*> ReportMapCache;
+
+void subscribeToHIDService(NimBLEClient* client);
 
 std::string stripColon(const std::string& str) {
   auto output = std::string();
@@ -162,6 +165,11 @@ void taskScan(void* arg) {
   while (true) {
     delay(100);
     if (xQueuePeek(xQueueScanMode, &scanMode, portMAX_DELAY) == pdTRUE) {
+      if (scanMode == ScanMode::Disabled) {
+        PS2BLE_LOGV("Scan disabled");
+        continue;
+      }
+
       if (scan->isScanning()) {
         if (scanMode == lastScanMode) {
           PS2BLE_LOGV("Scan mode unchanged");
@@ -200,45 +208,83 @@ void taskScan(void* arg) {
   }
 }
 
+const char SERVICE_UUID_GENERIC_ACCESS[] = "1800";
+const char CHARACTERISTIC_UUID_DEVICE_NAME[] = "2A00";
+
+std::string getDeviceName(NimBLEClient* client) {
+  auto service = client->getService(NimBLEUUID(SERVICE_UUID_GENERIC_ACCESS));
+  if (service == nullptr) {
+    PS2BLE_LOGE("Generic Access service not found");
+    return "";
+  }
+  auto characteristic = service->getCharacteristic(NimBLEUUID(CHARACTERISTIC_UUID_DEVICE_NAME));
+  if (characteristic == nullptr) {
+    PS2BLE_LOGE("Device Name characteristic not found");
+    return "";
+  }
+  auto value = characteristic->readValue();
+  auto deviceName = std::string(value.c_str());
+  return deviceName;
+}
+
+bool saveDeviceNameToNVS(NimBLEClient* client) {
+  auto name = getDeviceName(client);
+  if (name == "") {
+    PS2BLE_LOGE("Failed to get device name");
+    return false;
+  }
+  auto addr = client->getPeerAddress();
+  auto key = stripColon(addr.toString());
+  auto ok = NVS.setString(key.c_str(), name.c_str());
+  if (!ok) {
+    PS2BLE_LOGE("Failed to save bonded device name to NVS");
+    return false;
+  }
+  PS2BLE_LOGI(fmt::format("Saved bonded device name to NVS: {} = {}", addr.toString(), name));
+  return true;
+}
+
 void taskConnect(void* arg) {
   NimBLEAdvertisedDevice* advertisedDevice;
   while (true) {
     if (xQueueReceive(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY) == pdTRUE) {
-      // first, try to use the existing client to reduce the connection time
-      NimBLEClient* client = NimBLEDevice::getClientByPeerAddress(advertisedDevice->getAddress());
-      if (client != nullptr) {
-        auto isConnected = client->connect(advertisedDevice, false);
-        if (isConnected) {
-          xQueueSend(xQueueClientToSubscribe, &client, portMAX_DELAY);
-          continue;
-        }
+      // Save current scan mode.
+      ScanMode currentScanMode = ScanMode::BoundedDeviceOnly;
+      auto ret = xQueuePeek(xQueueScanMode, &currentScanMode, 0);
+      if (ret != pdTRUE) {
+        PS2BLE_LOGE("xQueuePeek failed for xQueueScanMode");
       }
 
-      // if the existing client is not available, create a new client
-      client = NimBLEDevice::createClient();
+      // Prevent taskScan to resatart scan.
+      auto scanMode = ScanMode::Disabled;
+      ret = xQueueOverwrite(xQueueScanMode, &scanMode);
+      if (ret != pdTRUE) {
+        PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
+      }
+
+      // Try to use the existing client to reduce the connection time.
+      NimBLEClient* client = NimBLEDevice::getClientByPeerAddress(advertisedDevice->getAddress());
+      // If the existing client is not available, create a new client.
+      if (client == nullptr) {
+        client = NimBLEDevice::createClient();
+      }
+
       client->setClientCallbacks(&clientCB, false);
-      client->setConnectionParams(12, 12, 0, 51);
+      client->setConnectionParams(12, 12, 0, 51);  // I don't know if it's optimal, but it works.
       client->setConnectTimeout(5);
-      for (size_t i = 0; i < 3; i++) {  // try 3 times
-        auto isConnected = client->connect(advertisedDevice);
-        if (isConnected) {
-          // save the device name to NVS
-          auto name = advertisedDevice->getName();
-          if (name != "") {
-            auto addr = advertisedDevice->getAddress();
-            auto key = stripColon(addr.toString());
-            auto ok = NVS.setString(key.c_str(), name.c_str());
-            if (!ok) {
-              PS2BLE_LOGE("Failed to save bonded device name to NVS");
-            } else {
-              PS2BLE_LOGI(fmt::format("Saved bonded device name to NVS: {} = {}", addr.toString(), name));
-            }
-          }
-          // then, send client to subscribe task
-          xQueueSend(xQueueClientToSubscribe, &client, portMAX_DELAY);
-          continue;
+      auto isConnected = client->connect(advertisedDevice);
+      if (isConnected) {
+        auto ok = saveDeviceNameToNVS(client);
+        if (!ok) {
+          PS2BLE_LOGE("Failed to save device name to NVS");
         }
-        delay(200);
+        subscribeToHIDService(client);
+      }
+
+      // Restore scan mode.
+      ret = xQueueOverwrite(xQueueScanMode, &currentScanMode);
+      if (ret != pdTRUE) {
+        PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
       }
     }
   }
