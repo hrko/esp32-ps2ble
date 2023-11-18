@@ -265,6 +265,16 @@ bool saveAppearanceToNVS(NimBLEClient* client) {
   return true;
 }
 
+std::uint16_t readAppearanceFromNVS(const NimBLEAddress& addr) {
+  auto key = stripColon(addr.toString() + "AP");
+  std::uint16_t appearance = NVS.getInt(key.c_str());
+  if (appearance == -1) {
+    PS2BLE_LOGE("Failed to read appearance from NVS");
+    return 0;
+  }
+  return appearance;
+}
+
 std::string getDeviceName(NimBLEClient* client) {
   auto service = client->getService(NimBLEUUID(SERVICE_UUID_GENERIC_ACCESS));
   if (service == nullptr) {
@@ -296,6 +306,16 @@ bool saveDeviceNameToNVS(NimBLEClient* client) {
   }
   PS2BLE_LOGI(fmt::format("Saved bonded device name to NVS: {} = {}", addr.toString(), name));
   return true;
+}
+
+std::string readDeviceNameFromNVS(const NimBLEAddress& addr) {
+  auto key = stripColon(addr.toString());
+  auto name = NVS.getString(key.c_str());
+  if (name == "") {
+    PS2BLE_LOGE("Failed to read device name from NVS");
+    return "";
+  }
+  return name.c_str();
 }
 
 void taskConnect(void* arg) {
@@ -730,10 +750,7 @@ void setup() {
       auto addrStr = std::string(addr);
       auto addrType = addr.getType();
       auto key = stripColon(addrStr);
-      auto name = NVS.getString(key.c_str());
-      if (name == nullptr) {
-        name = "";
-      }
+      auto name = readDeviceNameFromNVS(addr);
       auto clinet = NimBLEDevice::getClientByPeerAddress(addr);
       auto isConnected = clinet != nullptr && clinet->isConnected();
       auto bondedDevice = bondedDevices.createNestedObject();
