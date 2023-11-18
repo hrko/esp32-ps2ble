@@ -3,6 +3,7 @@ import Button from "@mui/material/Button";
 import ListItem from "@mui/material/ListItem";
 import List from "@mui/material/List";
 import ListItemText from "@mui/material/ListItemText";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -11,6 +12,9 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import BluetoothConnectedRoundedIcon from "@mui/icons-material/BluetoothConnectedRounded";
+import DeviceUnknownRoundedIcon from "@mui/icons-material/DeviceUnknownRounded";
+import MouseRoundedIcon from "@mui/icons-material/MouseRounded";
+import KeyboardRoundedIcon from "@mui/icons-material/KeyboardRounded";
 
 function ConnectedChip() {
   return (
@@ -23,6 +27,19 @@ function ConnectedChip() {
   );
 }
 
+function DeviceAppearanceIcon({ appearance }) {
+  switch (appearance) {
+    case "Generic HID":
+      return <DeviceUnknownRoundedIcon fontSize="large" />;
+    case "Keyboard":
+      return <KeyboardRoundedIcon fontSize="large" />;
+    case "Mouse":
+      return <MouseRoundedIcon fontSize="large" />;
+    default:
+      return <DeviceUnknownRoundedIcon fontSize="large" />;
+  }
+}
+
 function DeviceList({ devices, onDelete }) {
   return (
     <List>
@@ -32,6 +49,9 @@ function DeviceList({ devices, onDelete }) {
           style={{ display: "flex", justifyContent: "space-between" }}
           disableGutters
         >
+          <ListItemIcon>
+            <DeviceAppearanceIcon appearance={device.appearance} />
+          </ListItemIcon>
           <ListItemText primary={device.name} secondary={device.address} />
           <Stack direction="row" spacing={3} alignItems={"center"}>
             {device.isConnected && <ConnectedChip />}
