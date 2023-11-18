@@ -50,7 +50,7 @@ function App() {
         addressType,
       });
       if (response.data.deleted) {
-        fetchDevices(); // リストを更新
+        fetchDevices();
       } else {
         alert(`Error: ${response.data.message}`);
       }
@@ -63,9 +63,8 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <div className="App" style={{ margin: "20px" }}>
-        {/* <h1>ペアリング済みデバイス</h1> */}
         <Typography variant="h3" component="div" gutterBottom>
-          ペアリング済みデバイス
+          Paired Devices
         </Typography>
         <Button
           variant="contained"
@@ -73,7 +72,7 @@ function App() {
           startIcon={<RefreshIcon />}
           onClick={fetchDevices}
         >
-          デバイスリストを更新
+          Refresh Device List
         </Button>
         <DeviceList devices={devices} onDelete={deleteDevice} />
       </div>

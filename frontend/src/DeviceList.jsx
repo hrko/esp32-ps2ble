@@ -19,7 +19,7 @@ import KeyboardOutlinedIcon from "@mui/icons-material/KeyboardOutlined";
 function ConnectedChip() {
   return (
     <Chip
-      label="接続済み"
+      label="Connected"
       variant="outlined"
       size="small"
       icon={<BluetoothConnectedOutlinedIcon />}
@@ -98,15 +98,15 @@ function DeleteDeviceButton({ address, addressType, onDelete }) {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"ペアリング解除"}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">{"Delete device"}</DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            デバイスを削除しますか？
+            Delete the device?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose} color="primary">
-            キャンセル
+            Cancel
           </Button>
           <Button
             onClick={() => {
@@ -116,7 +116,7 @@ function DeleteDeviceButton({ address, addressType, onDelete }) {
             color="primary"
             autoFocus
           >
-            削除
+            Delete
           </Button>
         </DialogActions>
       </Dialog>
