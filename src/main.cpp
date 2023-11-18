@@ -305,16 +305,76 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
   PS2BLE_LOGI(report.toString());
 }
 
+class MouseStatus {
+ public:
+  MouseReport lastReport;
+  unsigned long lastReportTimeMicros = 0;  // if isMergingEnabled is true, this won't be updated
+  bool isMergingEnabled = false;
+  bool isLastReportNotSent = false;
+};
+std::map<std::pair<NimBLEAddress, reportID_t>, MouseStatus> MouseStatusMap;
 void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
-  auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
-  auto handle = pRemoteCharacteristic->getHandle();
-  auto reportID = HandleReportIDMapCache[addr][handle];
-  auto reportMap = ReportMapCache[addr];
-  auto reportItemList = reportMap->getInputReportItemList(reportID);
-  auto report = decodeMouseInputReport(pData, *reportItemList);
-  mouse.send_report(report.x, -report.y, report.wheelVertical, report.isButtonPressed[0], report.isButtonPressed[1],
-                    report.isButtonPressed[2], report.isButtonPressed[3], report.isButtonPressed[4]);
-  PS2BLE_LOGI(report.toString());
+  constexpr auto MinReportIntervalMicros = 10000UL;
+
+  const auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
+  const auto handle = pRemoteCharacteristic->getHandle();
+  const auto reportID = HandleReportIDMapCache[addr][handle];
+  const auto reportMap = ReportMapCache[addr];
+  const auto reportItemList = reportMap->getInputReportItemList(reportID);
+  auto currentReport = decodeMouseInputReport(pData, *reportItemList);
+  const auto currentReportTimeMicros = micros();
+  PS2BLE_LOGV(currentReport.toString());
+
+  // Initialize mouse status if not initialized.
+  if (MouseStatusMap.find({addr, reportID}) == MouseStatusMap.end()) {
+    MouseStatusMap[{addr, reportID}] = MouseStatus();
+  }
+
+  // Read and update mouse status.
+  auto& mouseStatus = MouseStatusMap[{addr, reportID}];
+  const auto lastReport = mouseStatus.lastReport;
+  const auto lastReportTimeMicros = mouseStatus.lastReportTimeMicros;
+  const auto isMergingEnabled = mouseStatus.isMergingEnabled;
+  const auto isLastReportNotSent = mouseStatus.isLastReportNotSent;
+  mouseStatus.lastReport = currentReport;
+  mouseStatus.lastReportTimeMicros = currentReportTimeMicros;
+
+  // Check if merging is needed.
+  // Since the ESP32's PS/2 emulation is software-based, too frequent reporting will cause the ESP32 to run out of CPU resources.
+  const auto reportIntervalMicros = currentReportTimeMicros - lastReportTimeMicros;
+  if (!mouseStatus.isMergingEnabled && reportIntervalMicros < MinReportIntervalMicros) {
+    PS2BLE_LOGI(fmt::format("Report from {} comes too frequently ({} us), enable merging", addr.toString(), reportIntervalMicros));
+    mouseStatus.isMergingEnabled = true;
+  }
+
+  // Check if button state is changed since last report.
+  auto isButtonChangedSinceLastReport = false;
+  constexpr auto PS2ButtonCount = 5;
+  for (size_t i = 0; i < PS2ButtonCount; i++) {
+    if (currentReport.isButtonPressed[i] != lastReport.isButtonPressed[i]) {
+      isButtonChangedSinceLastReport = true;
+      break;
+    }
+  }
+
+  // If last report is not sent, merge current report with last report.
+  if (isLastReportNotSent) {
+    currentReport.x += lastReport.x;
+    currentReport.y += lastReport.y;
+    currentReport.wheelVertical += lastReport.wheelVertical;
+  }
+
+  // Send report.
+  // If merging is disabled, send report anyway.
+  // If merging is enabled, send report only if last report is not sent or button state is changed since last report.
+  if (!isMergingEnabled || (isMergingEnabled && (isLastReportNotSent || isButtonChangedSinceLastReport))) {
+    mouse.send_report(currentReport.x, -currentReport.y, currentReport.wheelVertical, currentReport.isButtonPressed[0],
+                      currentReport.isButtonPressed[1], currentReport.isButtonPressed[2], currentReport.isButtonPressed[3],
+                      currentReport.isButtonPressed[4]);
+    mouseStatus.isLastReportNotSent = false;
+  } else {
+    mouseStatus.isLastReportNotSent = true;
+  }
 }
 
 void cacheReportMap(NimBLEClient* client, NimBLERemoteService* service) {
