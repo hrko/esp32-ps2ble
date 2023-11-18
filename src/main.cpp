@@ -274,11 +274,14 @@ void taskConnect(void* arg) {
       client->setConnectTimeout(5);
       auto isConnected = client->connect(advertisedDevice);
       if (isConnected) {
+        PS2BLE_LOGI(fmt::format("Connected to: {}", client->getPeerAddress().toString()));
         auto ok = saveDeviceNameToNVS(client);
         if (!ok) {
           PS2BLE_LOGE("Failed to save device name to NVS");
         }
         subscribeToHIDService(client);
+      } else {
+        PS2BLE_LOGI(fmt::format("Failed to connect to: {}", client->getPeerAddress().toString()));
       }
 
       // Restore scan mode.
@@ -439,6 +442,7 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
 void cacheReportMap(NimBLEClient* client, NimBLERemoteService* service) {
   auto isReportMapCached = ReportMapCache.find(client->getPeerAddress()) != ReportMapCache.end();
   if (!isReportMapCached) {
+    PS2BLE_LOGI("Caching report map");
     auto characteristic = service->getCharacteristic(CUUID_HID_REPORT_MAP);
     if (characteristic != nullptr) {
       auto value = characteristic->readValue();
@@ -447,6 +451,9 @@ void cacheReportMap(NimBLEClient* client, NimBLERemoteService* service) {
       auto reportMap = new ReportMap(rawReportMap, rawReportMapLength);
       ReportMapCache[client->getPeerAddress()] = reportMap;
     }
+    PS2BLE_LOGI("Cached report map");
+  } else {
+    PS2BLE_LOGI("Report map already cached");
   }
 }
 
