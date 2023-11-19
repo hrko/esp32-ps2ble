@@ -165,7 +165,7 @@ void taskScan(void* arg) {
   scan->setInterval(45);
   scan->setWindow(15);
   scan->setActiveScan(true);
-  ScanMode lastScanMode = ScanMode::NewDeviceAndBoundedDevice;
+  ScanMode lastScanMode = DEFAULT_SCAN_MODE;
   ScanMode scanMode;
 
   while (true) {
@@ -888,7 +888,7 @@ void setup() {
   xTaskCreateUniversal(taskConnect, "taskConnect", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
   xTaskCreateUniversal(taskSubscribe, "taskSubscribe", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
 
-  auto mode = ScanMode::NewDeviceAndBoundedDevice;
+  auto mode = DEFAULT_SCAN_MODE;
   auto ret = xQueueOverwrite(xQueueScanMode, &mode);
   if (ret != pdTRUE) {
     PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
