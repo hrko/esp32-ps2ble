@@ -7,6 +7,8 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import Typography from "@mui/material/Typography";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { Box, Container } from "@mui/material";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 const themeOptions = {
   palette: {
@@ -36,6 +38,20 @@ const theme = createTheme(themeOptions);
 
 function App() {
   const [devices, setDevices] = useState([]);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+
+  const handleOpenSnackbar = (message) => {
+    setSnackbarMessage(message);
+    setSnackbarOpen(true);
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
 
   useEffect(() => {
     fetchDevices();
@@ -59,7 +75,7 @@ function App() {
       if (response.data.deleted) {
         fetchDevices();
       } else {
-        alert(`Error: ${response.data.message}`);
+        handleOpenSnackbar(`Error: ${response.data.message}`);
       }
     } catch (error) {
       console.error("Error deleting device:", error);
@@ -84,6 +100,20 @@ function App() {
           </Button>
           <DeviceList devices={devices} onDelete={deleteDevice} />
         </Box>
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity="error"
+            sx={{ width: "100%", maxWidth: "mobileMax" }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Container>
     </ThemeProvider>
   );
