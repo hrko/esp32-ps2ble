@@ -69,7 +69,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <Container maxWidth="mobileMax">
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 2, pt: 3 }}>
           <CssBaseline />
           <Typography variant="h3" component="div" gutterBottom>
             Paired Devices
