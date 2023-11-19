@@ -648,12 +648,26 @@ void taskSubscribe(void* arg) {
 }
 
 void taskMouseBegin(void* arg) {
-  mouse.begin();
+  auto resetReason = esp_reset_reason();
+  if (resetReason == ESP_RST_POWERON) {
+    PS2BLE_LOGI("taskMouseBegin: reset reason: power on or hardware reset");
+    mouse.begin();
+  } else {
+    PS2BLE_LOGI("taskMouseBegin: reset reason: other");
+    mouse.begin(true);
+  }
   vTaskDelete(NULL);
 }
 
 void taskKeyboardBegin(void* arg) {
-  keyboard.begin();
+  auto resetReason = esp_reset_reason();
+  if (resetReason == ESP_RST_POWERON) {
+    PS2BLE_LOGI("taskKeyboardBegin: reset reason: power on or hardware reset");
+    keyboard.begin();
+  } else {
+    PS2BLE_LOGI("taskKeyboardBegin: reset reason: other");
+    keyboard.begin(true);
+  }
   vTaskDelete(NULL);
 }
 
@@ -699,13 +713,13 @@ void wifiEventCallback(WiFiEvent_t event) {
 }
 
 void setup() {
-  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-
   Serial.begin(115200);
 
   PS2BLE_LOG_START();
   PS2DEV_LOG_START();
+
+  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
 
   // LittleFS init
   PS2BLE_LOGI("Starting LittleFS");
