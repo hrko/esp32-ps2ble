@@ -103,12 +103,12 @@ function DeleteDeviceButton({ address, addressType, onDelete }) {
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">{"Delete device"}</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ minWidth: 300 }}>
           <DialogContentText id="alert-dialog-description">
             Delete the device?
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ pr: 2 }}>
           <Button onClick={handleClose} color="primary">
             Cancel
           </Button>
