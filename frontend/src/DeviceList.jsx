@@ -63,9 +63,13 @@ function DeviceList({ devices, onDelete }) {
           <ListItemText
             primary={SanitizedDeviceName(device.name)}
             secondary={device.address}
+            primaryTypographyProps={{
+              textOverflow: "ellipsis",
+              overflow: "hidden",
+            }}
           />
-          <Stack direction="row" spacing={3} alignItems={"center"}>
-            {device.isConnected && <ConnectedChip />}
+          <Stack direction="row" spacing={1} alignItems={"center"}>
+            {device.isConnected && <BluetoothConnectedOutlinedIcon />}
             <DeleteDeviceButton
               address={device.address}
               addressType={device.addressType}

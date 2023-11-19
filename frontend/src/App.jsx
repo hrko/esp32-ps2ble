@@ -6,6 +6,7 @@ import Button from "@mui/material/Button";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import Typography from "@mui/material/Typography";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { Box, Container } from "@mui/material";
 
 const themeOptions = {
   palette: {
@@ -23,6 +24,12 @@ const themeOptions = {
   },
   shape: {
     borderRadius: 20,
+  },
+  breakpoints: {
+    values: {
+      zero: 0,
+      mobileMax: 500,
+    },
   },
 };
 const theme = createTheme(themeOptions);
@@ -61,21 +68,23 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <div className="App" style={{ margin: "20px" }}>
-        <Typography variant="h3" component="div" gutterBottom>
-          Paired Devices
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<RefreshIcon />}
-          onClick={fetchDevices}
-        >
-          Refresh Device List
-        </Button>
-        <DeviceList devices={devices} onDelete={deleteDevice} />
-      </div>
+      <Container maxWidth="mobileMax">
+        <Box sx={{ p: 2 }}>
+          <CssBaseline />
+          <Typography variant="h3" component="div" gutterBottom>
+            Paired Devices
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<RefreshIcon />}
+            onClick={fetchDevices}
+          >
+            Refresh Device List
+          </Button>
+          <DeviceList devices={devices} onDelete={deleteDevice} />
+        </Box>
+      </Container>
     </ThemeProvider>
   );
 }
