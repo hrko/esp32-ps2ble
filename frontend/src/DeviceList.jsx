@@ -55,6 +55,12 @@ function DeviceList({ devices, onDelete }) {
             primaryTypographyProps={{
               textOverflow: "ellipsis",
               overflow: "hidden",
+              whiteSpace: "nowrap",
+            }}
+            secondaryTypographyProps={{
+              textOverflow: "ellipsis",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
             }}
           />
           <Stack direction="row" spacing={1} alignItems={"center"}>
