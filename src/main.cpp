@@ -45,11 +45,17 @@ enum class ScanMode : uint8_t {
   NewDeviceAndBoundedDevice,
   BoundedDeviceOnly,
   Disabled,
+  _Count,
 };
+
+bool isValidScanMode(uint8_t scanMode) { return scanMode < static_cast<uint8_t>(ScanMode::_Count); }
+
+constexpr auto DEFAULT_SCAN_MODE = ScanMode::BoundedDeviceOnly;
 
 QueueHandle_t xQueueScanMode;
 QueueHandle_t xQueueDeviceToConnect;
 QueueHandle_t xQueueClientToSubscribe;
+QueueHandle_t xQueueLastConnectedDevice;
 
 using HandleReportIDMap = std::map<uint16_t, reportID_t>;
 std::map<NimBLEAddress, HandleReportIDMap> HandleReportIDMapCache;
@@ -348,6 +354,11 @@ void taskConnect(void* arg) {
       client->setConnectTimeout(5);
       auto isConnected = client->connect(advertisedDevice);
       if (isConnected) {
+        auto addr = client->getPeerAddress();
+        ret = xQueueOverwrite(xQueueLastConnectedDevice, &addr);
+        if (ret != pdTRUE) {
+          PS2BLE_LOGE("xQueueOverwrite failed for xQueueLastConnectedDevice");
+        }
         PS2BLE_LOGI(fmt::format("Connected to: {}", client->getPeerAddress().toString()));
         auto ok = saveDeviceNameToNVS(client);
         if (!ok) {
@@ -791,6 +802,78 @@ void setup() {
     request->send(200, "application/json", responseStr);
   });
   server.addHandler(handler);
+  // handle GET to get scan mode
+  server.on("/api/scan-mode", HTTP_GET, [](AsyncWebServerRequest* request) {
+    auto doc = DynamicJsonDocument(256);
+    doc["scanMode"] = static_cast<std::uint8_t>(DEFAULT_SCAN_MODE);
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+  });
+  // handle POST to set scan mode
+  handler = new AsyncCallbackJsonWebHandler("/api/scan-mode", [](AsyncWebServerRequest* request, JsonVariant& json) {
+    StaticJsonDocument<256> response;
+    response["ok"] = false;
+    response["message"] = "";
+    const JsonObject& jsonObj = json.as<JsonObject>();
+    auto scanMode = jsonObj["scanMode"].as<std::uint8_t>();
+
+    auto currentScanMode = DEFAULT_SCAN_MODE;
+    auto ret = xQueuePeek(xQueueScanMode, &currentScanMode, 0);
+    if (ret != pdTRUE) {
+      PS2BLE_LOGE("xQueuePeek failed for xQueueScanMode");
+    }
+
+    if (currentScanMode == ScanMode::Disabled) {
+      PS2BLE_LOGI("Scan disabled, do not overwrite scan mode");
+      response["message"] = "Scan disabled";
+    } else {
+      PS2BLE_LOGI("Scan enabled, overwrite scan mode");
+      auto isScanModeValid = isValidScanMode(scanMode);
+      if (!isScanModeValid) {
+        PS2BLE_LOGE(fmt::format("Invalid scan mode: {}", scanMode));
+        response["message"] = "Invalid scan mode";
+      } else {
+        xQueueReset(xQueueLastConnectedDevice);
+        auto mode = static_cast<ScanMode>(scanMode);
+        ret = xQueueOverwrite(xQueueScanMode, &mode);
+        if (ret != pdTRUE) {
+          PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
+          response["message"] = "Failed to overwrite scan mode";
+        } else {
+          response["ok"] = true;
+        }
+      }
+    }
+
+    String responseStr;
+    serializeJson(response, responseStr);
+    request->send(200, "application/json", responseStr);
+  });
+  server.addHandler(handler);
+  // handle GET to fetch last connected device
+  server.on("/api/last-connected-device", HTTP_GET, [](AsyncWebServerRequest* request) {
+    auto doc = DynamicJsonDocument(256);
+    auto addr = NimBLEAddress();
+    auto ret = xQueueReceive(xQueueLastConnectedDevice, &addr, 0);
+    if (ret != pdTRUE) {
+      PS2BLE_LOGI("No last connected device");
+      doc["exists"] = false;
+    } else {
+      PS2BLE_LOGI(fmt::format("Last connected device: {}", std::string(addr)));
+      auto lastConnectedDevice = doc.createNestedObject("lastConnectedDevice");
+      auto addrStr = std::string(addr);
+      auto name = readDeviceNameFromNVS(addr);
+      auto appearance = getAppearanceName(readAppearanceFromNVS(addr));
+      doc["exists"] = true;
+      lastConnectedDevice["address"] = addrStr;
+      lastConnectedDevice["name"] = name;
+      lastConnectedDevice["appearance"] = appearance;
+    }
+    String output;
+    serializeJson(doc, output);
+    request->send(200, "application/json", output);
+  });
   // handle GET to fetch frontend files
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("public,max-age=31536000");
   server.begin();
@@ -799,6 +882,7 @@ void setup() {
   xQueueScanMode = xQueueCreate(1, sizeof(ScanMode));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
   xQueueClientToSubscribe = xQueueCreate(9, sizeof(NimBLEClient*));
+  xQueueLastConnectedDevice = xQueueCreate(1, sizeof(NimBLEAddress));
 
   xTaskCreateUniversal(taskScan, "taskScan", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
   xTaskCreateUniversal(taskConnect, "taskConnect", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
