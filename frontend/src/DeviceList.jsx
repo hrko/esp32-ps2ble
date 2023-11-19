@@ -16,17 +16,6 @@ import DeviceUnknownOutlinedIcon from "@mui/icons-material/DeviceUnknownOutlined
 import MouseOutlinedIcon from "@mui/icons-material/MouseOutlined";
 import KeyboardOutlinedIcon from "@mui/icons-material/KeyboardOutlined";
 
-function ConnectedChip() {
-  return (
-    <Chip
-      label="Connected"
-      variant="outlined"
-      size="small"
-      icon={<BluetoothConnectedOutlinedIcon />}
-    />
-  );
-}
-
 function DeviceAppearanceIcon({ appearance }) {
   switch (appearance) {
     case "Generic HID":
