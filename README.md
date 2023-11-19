@@ -3,6 +3,28 @@ This project allows you to use Bluetooth LE mice and keyboards as input devices 
 
 _Work in progress._
 
+## Features
+- [x] BLE keyboard to PS/2 keyboard.
+- [x] BLE mouse to PS/2 mouse.
+- [x] Multiple BLE devices.
+- [x] Web interface to manage paired devices.
+
+## Web interface
+You can manage paired devices from the web interface. Wi-Fi settings can only be set at compile time for now.
+
+![](webui_demo.apng)
+
+## Build and install
+```
+$ cd frontend
+$ npm install
+$ npm run build
+$ cd ..
+$ platformio run -e esp32-release erase
+$ platformio run -e esp32-release upload
+$ platformio run -e esp32-release uploadfs
+```
+
 ## References
 - [NimBLE-Arduino](https://h2zero.github.io/NimBLE-Arduino/annotated.html) - of course, the official documentation is the best place to know how it can be used.
 - [BLE_HID_Client](https://github.com/esp32beans/BLE_HID_Client) - greatly helped me understand how to connect the BLE HID peripheral to the ESP32 central.
