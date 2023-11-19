@@ -63,7 +63,12 @@ function DeviceList({ devices, onDelete }) {
               whiteSpace: "nowrap",
             }}
           />
-          <Stack direction="row" spacing={1} alignItems={"center"}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems={"center"}
+            sx={{ ml: 1 }}
+          >
             {device.isConnected && <BluetoothConnectedOutlinedIcon />}
             <DeleteDeviceButton
               address={device.address}
