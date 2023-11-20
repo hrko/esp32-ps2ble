@@ -447,90 +447,83 @@ void notifyCallbackKeyboardHIDReport(NimBLERemoteCharacteristic* pRemoteCharacte
 
 class MouseStatus {
  public:
-  MouseReport lastReport;
-  unsigned long lastReportTimeMicros = 0;  // if isMergingEnabled is true, this won't be updated
-  boost::circular_buffer<bool> shortIntervalsFlag = boost::circular_buffer<bool>(5);
-  bool isMergingEnabled = false;
-  bool isLastReportNotSent = false;
+  boost::circular_buffer<MouseReport> hidReportBuf = boost::circular_buffer<MouseReport>(10);
+  unsigned long lastPs2ReportTimeMicros = 0;
 };
 std::map<std::pair<NimBLEAddress, reportID_t>, MouseStatus> MouseStatusMap;
 void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
-  constexpr auto MinReportIntervalMicros = 10000UL;
-  constexpr auto ShortIntervalsCountThreshold = 4;
+  constexpr auto MinPs2ReportIntervalMicros = 10000UL;
 
   const auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
   const auto handle = pRemoteCharacteristic->getHandle();
   const auto reportID = HandleReportIDMapCache[addr][handle];
   const auto reportMap = ReportMapCache[addr];
   const auto reportItemList = reportMap->getInputReportItemList(reportID);
-  auto currentReport = decodeMouseInputReport(pData, *reportItemList);
-  const auto currentReportTimeMicros = micros();
-  PS2BLE_LOGV(currentReport.toString());
+  auto currentHidReport = decodeMouseInputReport(pData, *reportItemList);
+  const auto currentTimeMicros = micros();
+  PS2BLE_LOGV(currentHidReport.toString());
 
   // Initialize mouse status if not initialized.
   if (MouseStatusMap.find({addr, reportID}) == MouseStatusMap.end()) {
     MouseStatusMap[{addr, reportID}] = MouseStatus();
   }
 
-  // Read and update mouse status.
+  // Load mouse status.
   auto& mouseStatus = MouseStatusMap[{addr, reportID}];
-  const auto lastReport = mouseStatus.lastReport;
-  const auto lastReportTimeMicros = mouseStatus.lastReportTimeMicros;
-  const auto isMergingEnabled = mouseStatus.isMergingEnabled;
-  const auto isLastReportNotSent = mouseStatus.isLastReportNotSent;
-  mouseStatus.lastReport = currentReport;
-  mouseStatus.lastReportTimeMicros = currentReportTimeMicros;
+  // const auto lastPs2ReportTimeMicros = mouseStatus.lastPs2ReportTimeMicros;
 
-  // Check if merging is needed.
-  // Since the ESP32's PS/2 emulation is software-based, too frequent reporting will cause the ESP32 to run out of CPU resources.
-  const auto reportIntervalMicros = currentReportTimeMicros - lastReportTimeMicros;
-  if (!mouseStatus.isMergingEnabled && reportIntervalMicros < MinReportIntervalMicros) {
-    PS2BLE_LOGD(fmt::format("Report from {} comes too frequently, interval: {} us", addr.toString(), reportIntervalMicros));
-    mouseStatus.shortIntervalsFlag.push_back(true);
-    if (mouseStatus.shortIntervalsFlag.size() == mouseStatus.shortIntervalsFlag.capacity()) {
-      auto shortIntervalsCount = 0;
-      for (auto& flag : mouseStatus.shortIntervalsFlag) {
-        if (flag) shortIntervalsCount++;
-      }
-      if (shortIntervalsCount >= ShortIntervalsCountThreshold) {
-        mouseStatus.isMergingEnabled = true;
-        PS2BLE_LOGI(fmt::format("Report from {} comes too frequently {} times out of {}, enable merging", addr.toString(),
-                                shortIntervalsCount, mouseStatus.shortIntervalsFlag.capacity()));
-      }
-    }
-  }
+  bool sendPs2Report = false;
 
-  // Check if button state is changed since last report.
-  auto isButtonChangedSinceLastReport = false;
-  constexpr auto PS2ButtonCount = 5;
-  for (size_t i = 0; i < PS2ButtonCount; i++) {
-    if (currentReport.isButtonPressed[i] != lastReport.isButtonPressed[i]) {
-      isButtonChangedSinceLastReport = true;
+  do {
+    // If enough time has passed since last PS/2 report, send PS/2 report.
+    if (currentTimeMicros > mouseStatus.lastPs2ReportTimeMicros + MinPs2ReportIntervalMicros) {
+      sendPs2Report = true;
       break;
     }
-  }
 
-  // Check if wheel count is changed since last report.
-  auto isWheelCountChangedSinceLastReport = currentReport.wheelVertical != lastReport.wheelVertical;
+    // If last report is full, send PS/2 report.
+    if (mouseStatus.hidReportBuf.full()) {
+      sendPs2Report = true;
+      break;
+    }
 
-  // If last report is not sent, merge current report with last report.
-  if (isLastReportNotSent) {
-    currentReport.x += lastReport.x;
-    currentReport.y += lastReport.y;
-  }
+    // If HID report buffer is not empty, compare last HID report with current HID report.
+    if (!mouseStatus.hidReportBuf.empty()) {
+      const auto& lastHidReport = mouseStatus.hidReportBuf.back();
+      // Check if button state is changed since last report.
+      auto isButtonChanged = false;
+      constexpr auto PS2ButtonCount = 5;
+      for (size_t i = 0; i < PS2ButtonCount; i++) {
+        if (currentHidReport.isButtonPressed[i] != lastHidReport.isButtonPressed[i]) {
+          isButtonChanged = true;
+          break;
+        }
+      }
+      if (isButtonChanged) {
+        sendPs2Report = true;
+        break;
+      }
+      // Check if wheel count is changed since last report.
+      if (currentHidReport.wheelVertical != lastHidReport.wheelVertical) {
+        sendPs2Report = true;
+        break;
+      }
+    }
+  } while (false);
 
-  // Send report.
-  // If merging is disabled, send report anyway.
-  // If merging is enabled, send report only if last report is not sent or button state is changed since last report or wheel count is
-  // changed since last report.
-  if (!isMergingEnabled ||
-      (isMergingEnabled && (isLastReportNotSent || isButtonChangedSinceLastReport || isWheelCountChangedSinceLastReport))) {
-    mouse.send_report(currentReport.x, -currentReport.y, currentReport.wheelVertical, currentReport.isButtonPressed[0],
-                      currentReport.isButtonPressed[1], currentReport.isButtonPressed[2], currentReport.isButtonPressed[3],
-                      currentReport.isButtonPressed[4]);
-    mouseStatus.isLastReportNotSent = false;
+  // If PS/2 report is needed, send PS/2 report.
+  if (sendPs2Report) {
+    for (auto& hidReport : mouseStatus.hidReportBuf) {
+      currentHidReport.x += hidReport.x;
+      currentHidReport.y += hidReport.y;
+    }
+    mouse.send_report(currentHidReport.x, -currentHidReport.y, currentHidReport.wheelVertical, currentHidReport.isButtonPressed[0],
+                      currentHidReport.isButtonPressed[1], currentHidReport.isButtonPressed[2], currentHidReport.isButtonPressed[3],
+                      currentHidReport.isButtonPressed[4]);
+    mouseStatus.hidReportBuf.clear();
   } else {
-    mouseStatus.isLastReportNotSent = true;
+    // If PS/2 report is not needed, push HID report to buffer.
+    mouseStatus.hidReportBuf.push_back(currentHidReport);
   }
 }
 
