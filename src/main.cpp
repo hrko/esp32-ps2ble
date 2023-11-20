@@ -485,6 +485,7 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
   // Since the ESP32's PS/2 emulation is software-based, too frequent reporting will cause the ESP32 to run out of CPU resources.
   const auto reportIntervalMicros = currentReportTimeMicros - lastReportTimeMicros;
   if (!mouseStatus.isMergingEnabled && reportIntervalMicros < MinReportIntervalMicros) {
+    PS2BLE_LOGD(fmt::format("Report from {} comes too frequently, interval: {} us", addr.toString(), reportIntervalMicros));
     mouseStatus.shortIntervalsFlag.push_back(true);
     if (mouseStatus.shortIntervalsFlag.size() == mouseStatus.shortIntervalsFlag.capacity()) {
       auto shortIntervalsCount = 0;
@@ -509,17 +510,21 @@ void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteris
     }
   }
 
+  // Check if wheel count is changed since last report.
+  auto isWheelCountChangedSinceLastReport = currentReport.wheelVertical != lastReport.wheelVertical;
+
   // If last report is not sent, merge current report with last report.
   if (isLastReportNotSent) {
     currentReport.x += lastReport.x;
     currentReport.y += lastReport.y;
-    currentReport.wheelVertical += lastReport.wheelVertical;
   }
 
   // Send report.
   // If merging is disabled, send report anyway.
-  // If merging is enabled, send report only if last report is not sent or button state is changed since last report.
-  if (!isMergingEnabled || (isMergingEnabled && (isLastReportNotSent || isButtonChangedSinceLastReport))) {
+  // If merging is enabled, send report only if last report is not sent or button state is changed since last report or wheel count is
+  // changed since last report.
+  if (!isMergingEnabled ||
+      (isMergingEnabled && (isLastReportNotSent || isButtonChangedSinceLastReport || isWheelCountChangedSinceLastReport))) {
     mouse.send_report(currentReport.x, -currentReport.y, currentReport.wheelVertical, currentReport.isButtonPressed[0],
                       currentReport.isButtonPressed[1], currentReport.isButtonPressed[2], currentReport.isButtonPressed[3],
                       currentReport.isButtonPressed[4]);
