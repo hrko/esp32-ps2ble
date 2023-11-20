@@ -190,14 +190,25 @@ void taskScan(void* arg) {
         case ScanMode::NewDeviceOnly:
           PS2BLE_LOGI("Scan mode: NewDeviceOnly");
           scan->setAdvertisedDeviceCallbacks(&newDeviceOnlyCallbacks);
+          scan->setFilterPolicy(BLE_HCI_SCAN_FILT_NO_WL);
           break;
         case ScanMode::NewDeviceAndBoundedDevice:
           PS2BLE_LOGI("Scan mode: NewDeviceAndBoundedDevice");
           scan->setAdvertisedDeviceCallbacks(&newDeviceAndBoundedDeviceCallbacks);
+          scan->setFilterPolicy(BLE_HCI_SCAN_FILT_NO_WL);
           break;
         case ScanMode::BoundedDeviceOnly:
           PS2BLE_LOGI("Scan mode: BoundedDeviceOnly");
           scan->setAdvertisedDeviceCallbacks(&boundedDeviceOnlyCallbacks);
+          scan->setActiveScan(true);
+          for (size_t i = 0; i < NimBLEDevice::getNumBonds(); i++) {
+            const auto& addr = NimBLEDevice::getBondedAddress(i);
+            auto ok = NimBLEDevice::whiteListAdd(addr);
+            if (!ok) {
+              PS2BLE_LOGE(fmt::format("Failed to add {} to whitelist", addr.toString()));
+            }
+          }
+          scan->setFilterPolicy(BLE_HCI_SCAN_FILT_USE_WL);
           break;
         default:
           continue;
