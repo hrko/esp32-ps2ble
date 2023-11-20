@@ -84,7 +84,24 @@ class ClientCallbacks : public NimBLEClientCallbacks {
     PS2BLE_LOGI(output);
   };
 
-  bool onConnParamsUpdateRequest(NimBLEClient* pClient, const ble_gap_upd_params* params) { return true; };
+  bool onConnParamsUpdateRequest(NimBLEClient* pClient, const ble_gap_upd_params* params) {
+    auto reject = false;
+    if (params->itvl_min < 12) {  // 12 * 1.25ms = 15ms
+      reject = true;
+    }
+
+    if (reject) {
+      PS2BLE_LOGI(fmt::format(
+          "Rejected connection parameters update request from: {}, itvl_min: {}, itvl_max: {}, latency: {}, supervision_timeout: {}",
+          pClient->getPeerAddress().toString(), params->itvl_min, params->itvl_max, params->latency, params->supervision_timeout));
+      return false;
+    } else {
+      PS2BLE_LOGI(fmt::format(
+          "Accepted connection parameters update request from: {}, itvl_min: {}, itvl_max: {}, latency: {}, supervision_timeout: {}",
+          pClient->getPeerAddress().toString(), params->itvl_min, params->itvl_max, params->latency, params->supervision_timeout));
+      return true;
+    }
+  };
 
   uint32_t onPassKeyRequest() {
     PS2BLE_LOGI("Client Passkey Request");
@@ -365,8 +382,12 @@ void taskConnect(void* arg) {
       }
 
       client->setClientCallbacks(&clientCB, false);
-      client->setConnectionParams(12, 12, 0, 51);  // I don't know if it's optimal, but it works.
-      client->setConnectTimeout(5);
+      const auto minInterval = 12;          // 12 * 1.25ms = 15ms
+      const auto maxInterval = 12;          // 12 * 1.25ms = 15ms
+      const auto slaveLatency = 0;          // The number of packets allowed to skip. Helps peripheral save power.
+      const auto supervisionTimeout = 510;  // 51 * 10ms = 510ms
+      client->setConnectionParams(minInterval, maxInterval, slaveLatency, supervisionTimeout);
+      client->setConnectTimeout(5);  // The timeout to wait for connection attempt to complete.
       auto isConnected = client->connect(advertisedDevice);
       if (isConnected) {
         auto addr = client->getPeerAddress();
