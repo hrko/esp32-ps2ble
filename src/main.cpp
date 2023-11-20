@@ -767,22 +767,22 @@ void setup() {
     PS2BLE_LOGE("NVS init failed");
   }
 
-  // PS2BLE_LOGI("Starting WiFi Soft-AP");
-  // WiFi.mode(WIFI_AP);
-  // WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
-  // WiFi.softAP(AP_SSID, AP_PASSWORD);
+  PS2BLE_LOGI("Starting WiFi Soft-AP");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
+  WiFi.softAP(AP_SSID, AP_PASSWORD);
 
-  PS2BLE_LOGI("Starting WiFi");
-  WiFi.onEvent(wifiEventCallback);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(STA_SSID, STA_PASSWORD);
+  // PS2BLE_LOGI("Starting WiFi");
+  // WiFi.onEvent(wifiEventCallback);
+  // WiFi.mode(WIFI_STA);
+  // WiFi.begin(STA_SSID, STA_PASSWORD);
 
-  // MDNS init
-  PS2BLE_LOGI("Starting mDNS");
-  if (!MDNS.begin("ps2ble")) {
-    PS2BLE_LOGE("mDNS init failed");
-  }
-  MDNS.addService("http", "tcp", 80);
+  // // MDNS init
+  // PS2BLE_LOGI("Starting mDNS");
+  // if (!MDNS.begin("ps2ble")) {
+  //   PS2BLE_LOGE("mDNS init failed");
+  // }
+  // MDNS.addService("http", "tcp", 80);
 
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
