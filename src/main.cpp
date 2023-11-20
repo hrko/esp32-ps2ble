@@ -141,7 +141,11 @@ class AdvertisedDeviceCallbacksNewDeviceAndBoundedDevice : public NimBLEAdvertis
   void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
     if (isBondedDevice(advertisedDevice) || isAdvertisingHIDService(advertisedDevice)) {
       xQueueSend(xQueueDeviceToConnect, &advertisedDevice, portMAX_DELAY);
-      PS2BLE_LOGI("Found new device advertising HID service or bonded device");
+      if (isBondedDevice(advertisedDevice)) {
+        PS2BLE_LOGI("Found bonded device");
+      } else {
+        PS2BLE_LOGI("Found new device advertising HID service");
+      }
     }
   };
 };
