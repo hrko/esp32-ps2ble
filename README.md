@@ -7,7 +7,7 @@ _Work in progress._
 
 ## Features
 - [x] BLE keyboard to PS/2 keyboard.
-- [x] BLE mouse to PS/2 mouse.
+- [x] BLE mouse to PS/2 mouse (works but unstable).
 - [x] Multiple BLE devices.
 - [x] Web interface to manage paired devices.
 
