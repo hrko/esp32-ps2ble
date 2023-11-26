@@ -486,7 +486,8 @@ class MouseStatus {
   unsigned long lastPs2ReportTimeMicros = 0;
 };
 std::map<std::pair<NimBLEAddress, reportID_t>, MouseStatus> MouseStatusMap;
-void IRAM_ATTR notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+void IRAM_ATTR notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length,
+                                            bool isNotify) {
   constexpr auto MinPs2ReportIntervalMicros = 16667UL;
 
   const auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
@@ -670,26 +671,76 @@ void subscribeToHIDService(NimBLEClient* client) {
   subscribeHIDReportCharacteristics(client, characteristicsHidReport);
 }
 
-void taskMouseBegin(void* arg) {
+bool getResetCount(std::uint8_t* resetCount) {
+  auto ok = NVS.getBlob("resetCount", resetCount, 1);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to read resetCount from NVS");
+    return false;
+  }
+  return true;
+}
+
+void incrementResetCount() {
+  std::uint8_t resetCount;
+  auto ok = getResetCount(&resetCount);
+  if (!ok) {
+    resetCount = 0;
+  }
+  resetCount++;
+  ok = NVS.setBlob("resetCount", &resetCount, 1);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to write resetCount to NVS");
+  }
+}
+
+void clearResetCount() {
+  std::uint8_t resetCount = 0;
+  auto ok = NVS.setBlob("resetCount", &resetCount, 1);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to write resetCount to NVS");
+  }
+}
+
+bool shouldRestorePs2InternalState() {
   auto resetReason = esp_reset_reason();
+  std::uint8_t resetCount;
+  auto ok = getResetCount(&resetCount);
+  if (!ok) {
+    return false;
+  }
   if (resetReason == ESP_RST_POWERON) {
-    PS2BLE_LOGI("taskMouseBegin: reset reason: power on or hardware reset");
-    mouse.begin();
+    PS2BLE_LOGI("Reset reason: power on or hardware reset");
+    if (resetCount >= 3) {
+      PS2BLE_LOGI("Reset counter >= 3");
+      return false;
+    } else {
+      PS2BLE_LOGI(fmt::format("Reset counter: {}", resetCount));
+      return true;
+    }
   } else {
-    PS2BLE_LOGI("taskMouseBegin: reset reason: other");
+    PS2BLE_LOGI("Reset reason: other");
+    return true;
+  }
+}
+
+void taskMouseBegin(void* arg) {
+  if (shouldRestorePs2InternalState()) {
+    PS2BLE_LOGI("taskMouseBegin: restoring internal state");
     mouse.begin(true);
+  } else {
+    PS2BLE_LOGI("taskMouseBegin: not restoring internal state");
+    mouse.begin(false);
   }
   vTaskDelete(NULL);
 }
 
 void taskKeyboardBegin(void* arg) {
-  auto resetReason = esp_reset_reason();
-  if (resetReason == ESP_RST_POWERON) {
-    PS2BLE_LOGI("taskKeyboardBegin: reset reason: power on or hardware reset");
-    keyboard.begin();
-  } else {
-    PS2BLE_LOGI("taskKeyboardBegin: reset reason: other");
+  if (shouldRestorePs2InternalState()) {
+    PS2BLE_LOGI("taskKeyboardBegin: restoring internal state");
     keyboard.begin(true);
+  } else {
+    PS2BLE_LOGI("taskKeyboardBegin: not restoring internal state");
+    keyboard.begin(false);
   }
   vTaskDelete(NULL);
 }
@@ -741,13 +792,6 @@ void setup() {
   PS2BLE_LOG_START();
   PS2DEV_LOG_START();
 
-  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-
-  // LittleFS init
-  PS2BLE_LOGI("Starting LittleFS");
-  LittleFS.begin();
-
   // NVS init
   PS2BLE_LOGI("Starting NVS");
   constexpr auto NVS_NAMESPACE = "ps2ble";
@@ -755,6 +799,16 @@ void setup() {
   if (!ok) {
     PS2BLE_LOGE("NVS init failed");
   }
+
+  // Increment reset counter
+  incrementResetCount();
+
+  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+
+  // LittleFS init
+  PS2BLE_LOGI("Starting LittleFS");
+  LittleFS.begin();
 
   PS2BLE_LOGI("Starting WiFi Soft-AP");
   WiFi.mode(WIFI_AP);
@@ -928,6 +982,10 @@ void setup() {
   if (ret != pdTRUE) {
     PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
   }
+
+  // clear reset counter
+  delay(5000);
+  clearResetCount();
 }
 
 void loop() {
