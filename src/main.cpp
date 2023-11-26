@@ -794,6 +794,20 @@ void setup() {
     PS2BLE_LOGE("NVS init failed");
   }
 
+  // Reset on first boot (looks weird but improves stability)
+  std::uint8_t resetCount;
+  ok = getResetCount(&resetCount);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to read resetCount from NVS");
+  } else {
+    if (resetCount == 0) {
+      PS2BLE_LOGI("Restarts in 3 seconds");
+      incrementResetCount();
+      delay(3000);
+      ESP.restart();
+    }
+  }
+
   // Increment reset counter
   incrementResetCount();
 
