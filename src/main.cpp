@@ -54,7 +54,6 @@ constexpr auto DEFAULT_SCAN_MODE = ScanMode::BoundedDeviceOnly;
 
 QueueHandle_t xQueueScanMode;
 QueueHandle_t xQueueDeviceToConnect;
-QueueHandle_t xQueueClientToSubscribe;
 QueueHandle_t xQueueLastConnectedDevice;
 
 using HandleReportIDMap = std::map<uint16_t, reportID_t>;
@@ -671,16 +670,6 @@ void subscribeToHIDService(NimBLEClient* client) {
   subscribeHIDReportCharacteristics(client, characteristicsHidReport);
 }
 
-void taskSubscribe(void* arg) {
-  NimBLEClient* client;
-  while (true) {
-    if (xQueueReceive(xQueueClientToSubscribe, &client, portMAX_DELAY) == pdTRUE) {
-      subscribeToHIDService(client);
-    }
-  }
-  vTaskDelete(NULL);
-}
-
 void taskMouseBegin(void* arg) {
   auto resetReason = esp_reset_reason();
   if (resetReason == ESP_RST_POWERON) {
@@ -929,12 +918,10 @@ void setup() {
 
   xQueueScanMode = xQueueCreate(1, sizeof(ScanMode));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
-  xQueueClientToSubscribe = xQueueCreate(9, sizeof(NimBLEClient*));
   xQueueLastConnectedDevice = xQueueCreate(1, sizeof(NimBLEAddress));
 
   xTaskCreateUniversal(taskScan, "taskScan", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
   xTaskCreateUniversal(taskConnect, "taskConnect", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-  xTaskCreateUniversal(taskSubscribe, "taskSubscribe", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
 
   auto mode = DEFAULT_SCAN_MODE;
   auto ret = xQueueOverwrite(xQueueScanMode, &mode);
