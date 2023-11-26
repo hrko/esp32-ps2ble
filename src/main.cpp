@@ -702,23 +702,17 @@ void clearResetCount() {
 }
 
 bool shouldRestorePs2InternalState() {
-  auto resetReason = esp_reset_reason();
+  constexpr std::uint8_t resetCountThreshold = 3;
   std::uint8_t resetCount;
   auto ok = getResetCount(&resetCount);
   if (!ok) {
     return false;
   }
-  if (resetReason == ESP_RST_POWERON) {
-    PS2BLE_LOGI("Reset reason: power on or hardware reset");
-    if (resetCount >= 3) {
-      PS2BLE_LOGI("Reset counter >= 3");
-      return false;
-    } else {
-      PS2BLE_LOGI(fmt::format("Reset counter: {}", resetCount));
-      return true;
-    }
+  if (resetCount >= resetCountThreshold) {
+    PS2BLE_LOGI(fmt::format("Reset counter: >= {}", resetCountThreshold));
+    return false;
   } else {
-    PS2BLE_LOGI("Reset reason: other");
+    PS2BLE_LOGI(fmt::format("Reset counter: {}", resetCount));
     return true;
   }
 }
