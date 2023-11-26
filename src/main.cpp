@@ -486,7 +486,7 @@ class MouseStatus {
   unsigned long lastPs2ReportTimeMicros = 0;
 };
 std::map<std::pair<NimBLEAddress, reportID_t>, MouseStatus> MouseStatusMap;
-void notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+void IRAM_ATTR notifyCallbackMouseHIDReport(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
   constexpr auto MinPs2ReportIntervalMicros = 16667UL;
 
   const auto addr = pRemoteCharacteristic->getRemoteService()->getClient()->getPeerAddress();
