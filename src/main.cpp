@@ -781,6 +781,15 @@ void wifiEventCallback(WiFiEvent_t event) {
   }
 }
 
+constexpr auto LED_BUILTIN = 2;
+
+void ledInit() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+}
+
+void ledOn() { digitalWrite(LED_BUILTIN, HIGH); }
+
 void setup() {
   Serial.begin(115200);
 
@@ -991,6 +1000,10 @@ void setup() {
   if (ret != pdTRUE) {
     PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
   }
+
+  // LED init
+  ledInit();
+  ledOn();
 
   // clear reset counter
   delay(5000);
