@@ -22,7 +22,6 @@ extern "C" {
 #include <ArduinoNvs.h>
 #include <AsyncJson.h>
 #include <ESPAsyncWebServer.h>
-#include <ESPmDNS.h>
 #include <LittleFS.h>
 #include <WiFi.h>
 
@@ -789,6 +788,8 @@ void ledInit() {
 }
 
 void ledOn() { digitalWrite(LED_BUILTIN, HIGH); }
+void ledOff() { digitalWrite(LED_BUILTIN, LOW); }
+void IRAM_ATTR ledToggle() { digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); }
 
 void apiBegin() {
   // handle GET to list bonded devices
@@ -926,6 +927,9 @@ void setup() {
   PS2BLE_LOG_START();
   PS2DEV_LOG_START();
 
+  // LED init
+  ledInit();
+
   // NVS init
   PS2BLE_LOGI("Starting NVS");
   constexpr auto NVS_NAMESPACE = "ps2ble";
@@ -954,27 +958,6 @@ void setup() {
   xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
   xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
 
-  // LittleFS init
-  PS2BLE_LOGI("Starting LittleFS");
-  LittleFS.begin();
-
-  PS2BLE_LOGI("Starting WiFi Soft-AP");
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
-  WiFi.softAP(AP_SSID, AP_PASSWORD);
-
-  // PS2BLE_LOGI("Starting WiFi");
-  // WiFi.onEvent(wifiEventCallback);
-  // WiFi.mode(WIFI_STA);
-  // WiFi.begin(STA_SSID, STA_PASSWORD);
-
-  // // MDNS init
-  // PS2BLE_LOGI("Starting mDNS");
-  // if (!MDNS.begin("ps2ble")) {
-  //   PS2BLE_LOGE("mDNS init failed");
-  // }
-  // MDNS.addService("http", "tcp", 80);
-
   PS2BLE_LOGI("Starting NimBLE HID Client");
   NimBLEDevice::init("ps2ble");
   NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
@@ -990,8 +973,27 @@ void setup() {
     PS2BLE_LOGI(fmt::format("Bonded device {}: {}", i, addrStr));
   }
 
-  // Start API server
-  apiBegin();
+  // If reset counter is 5, start SoftAP and Web interface.
+  ok = getResetCount(&resetCount);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to read resetCount from NVS");
+  } else if (resetCount == 5) {
+    PS2BLE_LOGI("Starting LittleFS");
+    LittleFS.begin();
+
+    PS2BLE_LOGI("Starting WiFi Soft-AP");
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
+    WiFi.softAP(AP_SSID, AP_PASSWORD);
+
+    PS2BLE_LOGI("Starting HTTP server");
+    apiBegin();
+
+    auto timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(timer, &ledToggle, true);
+    timerAlarmWrite(timer, 500000, true);
+    timerAlarmEnable(timer);
+  }
 
   xQueueScanMode = xQueueCreate(1, sizeof(ScanMode));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
@@ -1006,8 +1008,6 @@ void setup() {
     PS2BLE_LOGE("xQueueOverwrite failed for xQueueScanMode");
   }
 
-  // LED init
-  ledInit();
   ledOn();
 
   // clear reset counter
