@@ -718,6 +718,7 @@ bool shouldRestorePs2InternalState() {
 }
 
 void taskMouseBegin(void* arg) {
+  mouse.set_byte_interval_micros(60);
   if (shouldRestorePs2InternalState()) {
     PS2BLE_LOGI("taskMouseBegin: restoring internal state");
     mouse.begin(true);
