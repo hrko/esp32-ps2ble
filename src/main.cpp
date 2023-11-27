@@ -790,76 +790,7 @@ void ledInit() {
 
 void ledOn() { digitalWrite(LED_BUILTIN, HIGH); }
 
-void setup() {
-  Serial.begin(115200);
-
-  PS2BLE_LOG_START();
-  PS2DEV_LOG_START();
-
-  // NVS init
-  PS2BLE_LOGI("Starting NVS");
-  constexpr auto NVS_NAMESPACE = "ps2ble";
-  auto ok = NVS.begin(NVS_NAMESPACE);
-  if (!ok) {
-    PS2BLE_LOGE("NVS init failed");
-  }
-
-  // Reset on first boot (looks weird but improves stability)
-  std::uint8_t resetCount;
-  ok = getResetCount(&resetCount);
-  if (!ok) {
-    PS2BLE_LOGE("Failed to read resetCount from NVS");
-  } else {
-    if (resetCount == 0) {
-      PS2BLE_LOGI("Restarts in 3 seconds");
-      incrementResetCount();
-      delay(3000);
-      ESP.restart();
-    }
-  }
-
-  // Increment reset counter
-  incrementResetCount();
-
-  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
-
-  // LittleFS init
-  PS2BLE_LOGI("Starting LittleFS");
-  LittleFS.begin();
-
-  PS2BLE_LOGI("Starting WiFi Soft-AP");
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
-  WiFi.softAP(AP_SSID, AP_PASSWORD);
-
-  // PS2BLE_LOGI("Starting WiFi");
-  // WiFi.onEvent(wifiEventCallback);
-  // WiFi.mode(WIFI_STA);
-  // WiFi.begin(STA_SSID, STA_PASSWORD);
-
-  // // MDNS init
-  // PS2BLE_LOGI("Starting mDNS");
-  // if (!MDNS.begin("ps2ble")) {
-  //   PS2BLE_LOGE("mDNS init failed");
-  // }
-  // MDNS.addService("http", "tcp", 80);
-
-  PS2BLE_LOGI("Starting NimBLE HID Client");
-  NimBLEDevice::init("ps2ble");
-  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
-  NimBLEDevice::setSecurityAuth(true, true, true);
-  NimBLEDevice::setPower(ESP_PWR_LVL_P9);
-
-  // print bonded devices
-  auto bondedNum = NimBLEDevice::getNumBonds();
-  PS2BLE_LOGI(fmt::format("Number of bonded devices: {}", bondedNum));
-  for (size_t i = 0; i < bondedNum; i++) {
-    auto addr = NimBLEDevice::getBondedAddress(i);
-    auto addrStr = std::string(addr);
-    PS2BLE_LOGI(fmt::format("Bonded device {}: {}", i, addrStr));
-  }
-
+void apiBegin() {
   // handle GET to list bonded devices
   server.on("/api/bonded-devices", HTTP_GET, [](AsyncWebServerRequest* request) {
     auto doc = DynamicJsonDocument(4096);
@@ -986,7 +917,81 @@ void setup() {
   // handle GET to fetch frontend files
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("public,max-age=31536000");
   server.begin();
-  PS2BLE_LOG("HTTP server started");
+  PS2BLE_LOGI("HTTP server started");
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  PS2BLE_LOG_START();
+  PS2DEV_LOG_START();
+
+  // NVS init
+  PS2BLE_LOGI("Starting NVS");
+  constexpr auto NVS_NAMESPACE = "ps2ble";
+  auto ok = NVS.begin(NVS_NAMESPACE);
+  if (!ok) {
+    PS2BLE_LOGE("NVS init failed");
+  }
+
+  // Reset on first boot (looks weird but improves stability)
+  std::uint8_t resetCount;
+  ok = getResetCount(&resetCount);
+  if (!ok) {
+    PS2BLE_LOGE("Failed to read resetCount from NVS");
+  } else {
+    if (resetCount == 0) {
+      PS2BLE_LOGI("Restarts in 3 seconds");
+      incrementResetCount();
+      delay(3000);
+      ESP.restart();
+    }
+  }
+
+  // Increment reset counter
+  incrementResetCount();
+
+  xTaskCreateUniversal(taskMouseBegin, "taskMouseBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+  xTaskCreateUniversal(taskKeyboardBegin, "taskKeyboardBegin", 4096, nullptr, 1, nullptr, CONFIG_ARDUINO_RUNNING_CORE);
+
+  // LittleFS init
+  PS2BLE_LOGI("Starting LittleFS");
+  LittleFS.begin();
+
+  PS2BLE_LOGI("Starting WiFi Soft-AP");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
+  WiFi.softAP(AP_SSID, AP_PASSWORD);
+
+  // PS2BLE_LOGI("Starting WiFi");
+  // WiFi.onEvent(wifiEventCallback);
+  // WiFi.mode(WIFI_STA);
+  // WiFi.begin(STA_SSID, STA_PASSWORD);
+
+  // // MDNS init
+  // PS2BLE_LOGI("Starting mDNS");
+  // if (!MDNS.begin("ps2ble")) {
+  //   PS2BLE_LOGE("mDNS init failed");
+  // }
+  // MDNS.addService("http", "tcp", 80);
+
+  PS2BLE_LOGI("Starting NimBLE HID Client");
+  NimBLEDevice::init("ps2ble");
+  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+  NimBLEDevice::setSecurityAuth(true, true, true);
+  NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+
+  // print bonded devices
+  auto bondedNum = NimBLEDevice::getNumBonds();
+  PS2BLE_LOGI(fmt::format("Number of bonded devices: {}", bondedNum));
+  for (size_t i = 0; i < bondedNum; i++) {
+    auto addr = NimBLEDevice::getBondedAddress(i);
+    auto addrStr = std::string(addr);
+    PS2BLE_LOGI(fmt::format("Bonded device {}: {}", i, addrStr));
+  }
+
+  // Start API server
+  apiBegin();
 
   xQueueScanMode = xQueueCreate(1, sizeof(ScanMode));
   xQueueDeviceToConnect = xQueueCreate(9, sizeof(NimBLEAdvertisedDevice*));
